@@ -127,11 +127,15 @@ public struct ContentView: View {
                         CompactSourceFilterButton(
                             availableSources: model.availableSources,
                             selectedSourceIDs: model.preferences.selectedSourceIdentifiers,
+                            hidesBriefAwakes: model.preferences.hidesBriefAwakes,
                             onToggleSource: { sourceID in
                                 model.toggleSourceSelection(sourceID)
                             },
                             onClearFilter: {
                                 model.clearSourceSelection()
+                            },
+                            onToggleHideBriefAwakes: {
+                                model.toggleHideBriefAwakes()
                             }
                         )
                         .accessibilityHint("Filters sleep data by device or application source")

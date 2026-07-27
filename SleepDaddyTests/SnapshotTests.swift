@@ -348,8 +348,10 @@ struct SnapshotTests {
         let filterButton = CompactSourceFilterButton(
             availableSources: ["com.apple.health": "Apple Watch", "com.oura.ring": "Oura Ring"],
             selectedSourceIDs: ["com.apple.health"],
+            hidesBriefAwakes: false,
             onToggleSource: { _ in },
-            onClearFilter: {}
+            onClearFilter: {},
+            onToggleHideBriefAwakes: {}
         )
         .frame(width: 44, height: 44)
         .environment(\.colorScheme, .dark)

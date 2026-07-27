@@ -3,21 +3,27 @@ import SwiftUI
 public struct CompactSourceFilterButton: View {
     let availableSources: [String: String]
     let selectedSourceIDs: [String]
+    let hidesBriefAwakes: Bool
     let onToggleSource: (String) -> Void
     let onClearFilter: () -> Void
+    let onToggleHideBriefAwakes: () -> Void
 
     @State private var showingFilterSheet = false
 
     public init(
         availableSources: [String: String],
         selectedSourceIDs: [String],
+        hidesBriefAwakes: Bool,
         onToggleSource: @escaping (String) -> Void,
-        onClearFilter: @escaping () -> Void
+        onClearFilter: @escaping () -> Void,
+        onToggleHideBriefAwakes: @escaping () -> Void
     ) {
         self.availableSources = availableSources
         self.selectedSourceIDs = selectedSourceIDs
+        self.hidesBriefAwakes = hidesBriefAwakes
         self.onToggleSource = onToggleSource
         self.onClearFilter = onClearFilter
+        self.onToggleHideBriefAwakes = onToggleHideBriefAwakes
     }
 
     public var body: some View {
@@ -29,7 +35,7 @@ public struct CompactSourceFilterButton: View {
                     .font(.system(size: 20))
                     .foregroundColor(.primary)
 
-                if !selectedSourceIDs.isEmpty {
+                if !selectedSourceIDs.isEmpty || hidesBriefAwakes {
                     Circle()
                         .fill(Color.blue)
                         .frame(width: 8, height: 8)
@@ -47,6 +53,17 @@ public struct CompactSourceFilterButton: View {
                         Text("When no sources are selected, sleep data from all sources is shown.")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                    }
+
+                    Section(
+                        header: Text("Timeline Display"),
+                        footer: Text("Awake periods of one minute or less are hidden from the timeline. Sleep totals are unaffected.")
+                    ) {
+                        Toggle("Hide Brief Awakes", isOn: Binding(
+                            get: { hidesBriefAwakes },
+                            set: { _ in onToggleHideBriefAwakes() }
+                        ))
+                        .accessibilityHint("Hides awake periods of one minute or less from the timeline drawing")
                     }
 
                     Section("Sources") {
