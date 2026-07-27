@@ -265,6 +265,101 @@ struct SnapshotTests {
         }
     }
 
+    @Test @MainActor func testCanvasSnapshotWithBriefAwakesHidden() throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 7
+        components.day = 25
+        components.hour = 19
+        let coreStart = calendar.date(from: components)!
+
+        func watch(_ id: String, _ stage: SleepStage, _ from: TimeInterval, _ to: TimeInterval) -> NormalizedSleepInterval {
+            NormalizedSleepInterval(
+                id: id,
+                startDate: coreStart.addingTimeInterval(from),
+                endDate: coreStart.addingTimeInterval(to),
+                stage: stage,
+                sourceName: "Apple Watch",
+                sourceIdentifier: "com.apple.health"
+            )
+        }
+
+        // A night peppered with one-minute awake spikes, the pattern this filter exists for.
+        let fixtureIntervals = [
+            watch("core1", .core, 3600, 7200),
+            watch("spike1", .awake, 7200, 7260),
+            watch("core2", .core, 7260, 9000),
+            watch("spike2", .awake, 9000, 9060),
+            watch("deep1", .deep, 9060, 12600),
+            watch("spike3", .awake, 12600, 12660),
+            watch("rem1", .rem, 12660, 16200),
+            watch("awake1", .awake, 16200, 18000),
+            watch("core3", .core, 18000, 21600)
+        ]
+
+        var hidingPrefs = SleepPreferences.default
+        hidingPrefs.hidesBriefAwakes = true
+
+        let assembler = NightAssembler()
+        let night = assembler.assembleNight(
+            for: coreStart,
+            allNormalizedIntervals: fixtureIntervals,
+            preferences: hidingPrefs
+        )
+
+        // The three spikes go; the 30-minute awake stays.
+        #expect(night.displayLaneIntervals.filter { $0.stage == .awake }.count == 1)
+
+        let canvas = SleepTimelineCanvas(
+            night: night,
+            viewportStart: night.detectedStart,
+            viewportEnd: night.detectedEnd,
+            selectedIntervalID: nil,
+            onSelectInterval: { _ in },
+            onUpdateViewport: { _, _ in }
+        )
+        .frame(width: 393, height: 320)
+        .environment(\.colorScheme, .dark)
+        .environment(\.locale, Locale(identifier: "en_US"))
+        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+        .environment(\.timelineInteractionEnabled, false)
+
+        let renderer = ImageRenderer(content: canvas)
+        renderer.scale = 2.0
+        guard let currentImage = renderer.uiImage,
+              let currentPNGData = currentImage.pngData(),
+              let cgCurrent = currentImage.cgImage else {
+            Issue.record("Failed to render brief awake snapshot PNG")
+            return
+        }
+
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let referenceDir = testFileURL.deletingLastPathComponent().appendingPathComponent("ReferenceSnapshots")
+        let referenceURL = referenceDir.appendingPathComponent("snapshot_brief_awakes_hidden.png")
+
+        let fileManager = FileManager.default
+
+        if !fileManager.fileExists(atPath: referenceURL.path) {
+            try fileManager.createDirectory(at: referenceDir, withIntermediateDirectories: true)
+            try currentPNGData.write(to: referenceURL)
+            #expect(fileManager.fileExists(atPath: referenceURL.path))
+        } else {
+            let referenceData = try Data(contentsOf: referenceURL)
+            guard let referenceImage = UIImage(data: referenceData),
+                  let cgReference = referenceImage.cgImage else {
+                Issue.record("Failed to load reference image snapshot PNG")
+                return
+            }
+
+            #expect(cgCurrent.width == cgReference.width, "Pixel width mismatch (\(cgCurrent.width) vs \(cgReference.width))")
+            #expect(cgCurrent.height == cgReference.height, "Pixel height mismatch (\(cgCurrent.height) vs \(cgReference.height))")
+
+            let imagesMatch = compareImages(cgCurrent: cgCurrent, cgReference: cgReference)
+            #expect(imagesMatch, "Rendered snapshot image pixels do not match reference PNG snapshot")
+        }
+    }
+
     @Test @MainActor func testSnapshotUnspecifiedOnlyNight() throws {
         let calendar = Calendar.current
         var components = DateComponents()
