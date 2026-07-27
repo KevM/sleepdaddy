@@ -102,7 +102,7 @@ public struct CompactSourceFilterButton: View {
                         }
                     }
                 }
-                .navigationTitle("Filter Sources")
+                .navigationTitle("Timeline Filters")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
