@@ -1,0 +1,65 @@
+name: SleepDaddy
+options:
+  bundleIdPrefix: fm.rodeo
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "27.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: 6HQGHHRK87
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    CLANG_CXX_LANGUAGE_STANDARD: "gnu++20"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    GCC_C_LANGUAGE_STANDARD: "gnu17"
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_VERSION: "6.0"
+targets:
+  SleepDaddy:
+    type: application
+    platform: iOS
+    sources:
+      - path: SleepDaddy
+    entitlements:
+      path: SleepDaddy/SleepDaddy.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+    info:
+      path: SleepDaddy/Info.plist
+      properties:
+        NSHealthShareUsageDescription: "SleepDaddy requests read-only access to HealthKit sleep data to visualize your sleep timeline."
+        NSHealthUpdateUsageDescription: "SleepDaddy does not modify HealthKit data."
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: fm.rodeo.SleepDaddy
+      CODE_SIGN_STYLE: Automatic
+      DEVELOPMENT_TEAM: ${DEVELOPMENT_TEAM}
+      SWIFT_VERSION: "6.0"
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      ENABLE_PREVIEWS: YES
+    frameworks:
+      - sdk: HealthKit.framework
+  SleepDaddyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: SleepDaddyTests
+    info:
+      path: SleepDaddyTests/Info.plist
+    settings:
+      CODE_SIGN_STYLE: Automatic
+      SWIFT_VERSION: "6.0"
+    dependencies:
+      - target: SleepDaddy

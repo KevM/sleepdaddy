@@ -1,0 +1,207 @@
+import SwiftUI
+
+public struct ContentView: View {
+    @State private var model: NightBrowserModel
+
+    public init(model: NightBrowserModel? = nil) {
+        self._model = State(initialValue: model ?? NightBrowserModel())
+    }
+
+    public var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                switch model.appState {
+                case .loading:
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                        Text("Reading HealthKit sleep data...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                case .unavailable:
+                    VStack(spacing: 16) {
+                        Image(systemName: "heart.slash")
+                            .font(.system(size: 48))
+                            .foregroundColor(.orange)
+                        Text("HealthKit Unavailable")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        Text("HealthKit is not available on this device or environment.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                case .unauthorized:
+                    VStack(spacing: 16) {
+                        Image(systemName: "hand.raised.slash.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(.blue)
+                        Text("HealthKit Access Required")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        Text("SleepDaddy needs read-only access to visualize your HealthKit sleep analysis. Enable sleep data access in iOS Settings > Health > Data Access & Devices > SleepDaddy.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+
+                        Button("Retry Access Check") {
+                            Task {
+                                await model.loadData()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 8)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                case .error(let errorMsg):
+                    VStack(spacing: 16) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.system(size: 48))
+                            .foregroundColor(.red)
+                        Text("Unable to Load Sleep Data")
+                            .font(.title3)
+                            .fontWeight(.bold)
+                        Text(errorMsg)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+
+                        Button("Retry") {
+                            Task {
+                                await model.loadData()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                case .loaded:
+                    VStack(spacing: 0) {
+                        if let night = model.selectedAssembledNight {
+                            let dateRange: ClosedRange<Date>? = {
+                                guard let first = model.assembledNights.first?.date,
+                                      let last = model.assembledNights.last?.date,
+                                      first <= last else { return nil }
+                                return first...last
+                            }()
+
+                            NightHeaderView(
+                                night: night,
+                                canGoPrevious: model.canSelectPreviousNight,
+                                canGoNext: model.canSelectNextNight,
+                                dateRange: dateRange,
+                                onPrevious: model.selectPreviousNight,
+                                onNext: model.selectNextNight,
+                                onSelectDate: model.selectNight
+                            )
+                        }
+
+                        Divider()
+                            .padding(.vertical, 8)
+
+                        // Selected Night Detail
+                        SelectedNightDetailView(model: model)
+                            .padding(.vertical, 8)
+                    }
+                    .frame(
+                        maxWidth: .infinity,
+                        maxHeight: .infinity,
+                        alignment: .top
+                    )
+                }
+            }
+            .navigationTitle("SleepDaddy")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 0) {
+                        CompactSourceFilterButton(
+                            availableSources: model.availableSources,
+                            selectedSourceIDs: model.preferences.selectedSourceIdentifiers,
+                            onToggleSource: { sourceID in
+                                model.toggleSourceSelection(sourceID)
+                            },
+                            onClearFilter: {
+                                model.clearSourceSelection()
+                            }
+                        )
+                        .accessibilityHint("Filters sleep data by device or application source")
+
+                        Button {
+                            if let night = model.selectedAssembledNight, night.hasSleepData {
+                                exportAndShare(night: night)
+                            }
+                        } label: {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 18))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("Share timeline")
+                        .accessibilityHint("Exports and shares current sleep view as image")
+                        .disabled(model.selectedAssembledNight?.hasSleepData != true)
+
+                        Button {
+                            model.showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 18))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("Settings")
+                        .accessibilityHint("Opens sleep data settings and exclusions")
+                    }
+                }
+            }
+            .sheet(isPresented: $model.showSettings) {
+                SettingsView(
+                    coreStartHour: Binding(
+                        get: { model.preferences.coreWindowStartHour },
+                        set: { start in model.updateCoreWindow(startHour: start, endHour: model.preferences.coreWindowEndHour) }
+                    ),
+                    coreEndHour: Binding(
+                        get: { model.preferences.coreWindowEndHour },
+                        set: { end in model.updateCoreWindow(startHour: model.preferences.coreWindowStartHour, endHour: end) }
+                    ),
+                    excludedIDs: model.preferences.excludedSampleIDs,
+                    excludedDetails: model.excludedRecordDetails,
+                    onRestoreExclusion: { id in model.restoreSample(id: id) },
+                    onRestoreAllExclusions: { model.restoreAllExclusions() },
+                    onDismiss: { model.showSettings = false }
+                )
+            }
+            .sheet(isPresented: $model.showShareSheet) {
+                if let img = model.exportedImage {
+                    ActivityViewController(activityItems: [img])
+                }
+            }
+            .task {
+                await model.loadData()
+            }
+        }
+    }
+
+    private func exportAndShare(night: AssembledNight) {
+        let renderer = SleepShareRenderer()
+        let desc = model.preferences.selectedSourceIdentifiers.isEmpty ? "All Sources" : model.preferences.selectedSourceIdentifiers.compactMap { model.availableSources[$0] }.joined(separator: ", ")
+        if let image = renderer.renderShareImage(
+            night: night,
+            viewportStart: model.viewportStart,
+            viewportEnd: model.viewportEnd,
+            sourceFilterDescription: desc
+        ) {
+            model.exportedImage = image
+            model.showShareSheet = true
+        }
+    }
+}

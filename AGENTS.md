@@ -1,0 +1,50 @@
+# AGENTS.md - Developer & AI Pair Programming Guide
+
+This document provides context, conventions, architecture guidelines, and standard commands for AI assistants working on **SleepDaddy**.
+
+## Project Overview
+
+SleepDaddy is a read-only iOS application for inspecting HealthKit sleep data in high detail via a zoomable timeline, multi-night overview, source filtering, local exclusions, adaptive night boundaries, and current-view image export.
+
+## Key Principles & Conventions
+
+1. **Swift 6 & Native SwiftUI**: iOS 26+ target built with modern SwiftUI and Swift 6 concurrency features.
+2. **XcodeGen Managed**: Do NOT commit `SleepDaddy.xcodeproj` or `Info.plist` files. Modify `project.yml` when adding new frameworks, targets, or Info.plist configuration, then run `xcodegen generate`.
+3. **Read-Only HealthKit**: HealthKit is read-only. Never add write/update code for HealthKit data. Local record exclusions and preferences are persisted locally in `UserDefaults` (`SleepPreferences` / `PreferencesStore`).
+4. **Swift Testing**: Unit tests use the modern `import Testing` framework (`@Test` functions and `#expect(...)` assertions).
+5. **Decoupled Geometry & Layout**: Timeline geometry calculations (dates to pixels, pinch zoom scaling, drag panning, clamping, hit testing) reside in `SleepTimelineGeometry.swift` so canvas behavior can be tested without rendering UI pixels.
+
+## Standard Development Commands
+
+### 1. Regenerate Xcode Project
+```bash
+xcodegen generate
+```
+
+### 2. Build Scheme
+```bash
+xcodebuild build -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
+```
+
+### 3. Run Unit Test Suite
+```bash
+xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
+```
+
+## Directory Structure
+
+```text
+sleepdaddy/
+├── project.yml                 # XcodeGen project specification
+├── README.md                   # User & project documentation
+├── AGENTS.md                   # AI pair programming guidelines
+├── SleepDaddy/
+│   ├── SleepDaddyApp.swift     # Main app entrypoint
+│   ├── Models/                 # SleepStage, NormalizedSleepInterval, SleepPreferences, AssembledNight, NightSummary, TimelineConflict
+│   ├── Services/               # HealthKitSleepStore, FixtureSleepStore, SleepNormalizer, NightAssembler, PreferencesStore
+│   ├── ViewModels/             # NightBrowserModel (@Observable)
+│   ├── Layout/                 # SleepTimelineGeometry
+│   ├── Views/                  # ContentView, MultiNightOverviewStrip, SelectedNightDetailView, SleepTimelineCanvas, SlimContextNavigator, IntervalInspectorSheet, SourceFilterView, SettingsView, ExcludedRecordsView, ShareTimelineCardView
+│   └── Utilities/              # SleepShareRenderer, AccessibilityHelpers
+└── SleepDaddyTests/            # Unit test suites (Swift Testing)
+```
