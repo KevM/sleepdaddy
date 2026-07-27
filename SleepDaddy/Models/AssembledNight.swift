@@ -13,6 +13,9 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
     public let detectedEnd: Date
     public let rawIntervals: [NormalizedSleepInterval]
     public let primaryLaneIntervals: [NormalizedSleepInterval]
+    /// The lane the timeline draws. Equal to `primaryLaneIntervals` unless a display filter
+    /// such as `SleepPreferences.hidesBriefAwakes` is active. Never used for summaries.
+    public let displayLaneIntervals: [NormalizedSleepInterval]
     public let conflicts: [TimelineConflict]
     public let summary: NightSummary
     public let hasSleepData: Bool
@@ -38,6 +41,7 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
         detectedEnd: Date,
         rawIntervals: [NormalizedSleepInterval],
         primaryLaneIntervals: [NormalizedSleepInterval],
+        displayLaneIntervals: [NormalizedSleepInterval],
         conflicts: [TimelineConflict],
         summary: NightSummary,
         hasSleepData: Bool
@@ -49,6 +53,7 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
         self.detectedEnd = detectedEnd
         self.rawIntervals = rawIntervals
         self.primaryLaneIntervals = primaryLaneIntervals
+        self.displayLaneIntervals = displayLaneIntervals
         self.conflicts = conflicts
         self.summary = summary
         self.hasSleepData = hasSleepData

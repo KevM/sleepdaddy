@@ -119,4 +119,78 @@ struct NightAssemblerTests {
         #expect(assembled.rawIntervals.contains(where: { $0.id == "night" }))
         #expect(!assembled.rawIntervals.contains(where: { $0.id == "nap" }))
     }
+
+    /// Core, a one-minute awake, then core again — all inside the default core window.
+    private func laneWithBriefAwake() -> [NormalizedSleepInterval] {
+        let startOfDay = calendar.startOfDay(for: sampleDate)
+        let p10PM = calendar.date(bySettingHour: 22, minute: 0, second: 0, of: startOfDay)!
+
+        return [
+            NormalizedSleepInterval(
+                id: "c1",
+                startDate: p10PM,
+                endDate: p10PM.addingTimeInterval(3600),
+                stage: .core,
+                sourceName: "Watch",
+                sourceIdentifier: "com.apple.watch"
+            ),
+            NormalizedSleepInterval(
+                id: "a1",
+                startDate: p10PM.addingTimeInterval(3600),
+                endDate: p10PM.addingTimeInterval(3660),
+                stage: .awake,
+                sourceName: "Watch",
+                sourceIdentifier: "com.apple.watch"
+            ),
+            NormalizedSleepInterval(
+                id: "c2",
+                startDate: p10PM.addingTimeInterval(3660),
+                endDate: p10PM.addingTimeInterval(10800),
+                stage: .core,
+                sourceName: "Watch",
+                sourceIdentifier: "com.apple.watch"
+            )
+        ]
+    }
+
+    @Test func testDisplayLaneMatchesPrimaryLaneWhenFilterIsOff() {
+        let assembled = assembler.assembleNight(
+            for: sampleDate,
+            allNormalizedIntervals: laneWithBriefAwake(),
+            preferences: .default
+        )
+
+        #expect(assembled.displayLaneIntervals == assembled.primaryLaneIntervals)
+    }
+
+    @Test func testBriefAwakeFilterChangesOnlyTheDisplayLane() {
+        var hidingPrefs = SleepPreferences.default
+        hidingPrefs.hidesBriefAwakes = true
+
+        let intervals = laneWithBriefAwake()
+        let shown = assembler.assembleNight(
+            for: sampleDate,
+            allNormalizedIntervals: intervals,
+            preferences: .default
+        )
+        let hidden = assembler.assembleNight(
+            for: sampleDate,
+            allNormalizedIntervals: intervals,
+            preferences: hidingPrefs
+        )
+
+        // Everything that is reported to the user is untouched.
+        #expect(hidden.summary == shown.summary)
+        #expect(hidden.summary.awakeDuration == 60)
+        #expect(hidden.detectedStart == shown.detectedStart)
+        #expect(hidden.detectedEnd == shown.detectedEnd)
+        #expect(hidden.rawIntervals == shown.rawIntervals)
+        #expect(hidden.primaryLaneIntervals == shown.primaryLaneIntervals)
+
+        // Only the drawn lane loses the spike.
+        #expect(hidden.displayLaneIntervals.count < hidden.primaryLaneIntervals.count)
+        #expect(!hidden.displayLaneIntervals.contains { $0.stage == .awake })
+        #expect(hidden.displayLaneIntervals.first?.startDate == shown.primaryLaneIntervals.first?.startDate)
+        #expect(hidden.displayLaneIntervals.last?.endDate == shown.primaryLaneIntervals.last?.endDate)
+    }
 }
