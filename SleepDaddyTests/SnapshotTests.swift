@@ -265,6 +265,85 @@ struct SnapshotTests {
         }
     }
 
+    @Test @MainActor func testSnapshotUnspecifiedOnlyNight() throws {
+        let calendar = Calendar.current
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 7
+        components.day = 25
+        components.hour = 19
+        let coreStart = calendar.date(from: components)!
+
+        let fixtureIntervals = [
+            NormalizedSleepInterval(
+                id: "unspecified1",
+                startDate: coreStart.addingTimeInterval(3600),
+                endDate: coreStart.addingTimeInterval(7 * 3600),
+                stage: .asleepUnspecified,
+                sourceName: "Basic Tracker",
+                sourceIdentifier: "com.basic.tracker"
+            )
+        ]
+
+        let assembler = NightAssembler()
+        let night = assembler.assembleNight(
+            for: coreStart,
+            allNormalizedIntervals: fixtureIntervals,
+            preferences: .default
+        )
+
+        #expect(night.hasSleepData)
+        #expect(night.summary.stagePercentages.isEmpty)
+
+        let canvas = SleepTimelineCanvas(
+            night: night,
+            viewportStart: night.detectedStart,
+            viewportEnd: night.detectedEnd,
+            selectedIntervalID: nil,
+            onSelectInterval: { _ in },
+            onUpdateViewport: { _, _ in }
+        )
+        .frame(width: 393, height: 320)
+        .environment(\.colorScheme, .dark)
+        .environment(\.locale, Locale(identifier: "en_US"))
+        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+        .environment(\.timelineInteractionEnabled, false)
+
+        let renderer = ImageRenderer(content: canvas)
+        renderer.scale = 2.0
+        guard let currentImage = renderer.uiImage,
+              let currentPNGData = currentImage.pngData(),
+              let cgCurrent = currentImage.cgImage else {
+            Issue.record("Failed to render unspecified-only timeline canvas snapshot PNG")
+            return
+        }
+
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        let referenceDir = testFileURL.deletingLastPathComponent().appendingPathComponent("ReferenceSnapshots")
+        let referenceURL = referenceDir.appendingPathComponent("snapshot_unspecified_only_canvas.png")
+
+        let fileManager = FileManager.default
+
+        if !fileManager.fileExists(atPath: referenceURL.path) {
+            try fileManager.createDirectory(at: referenceDir, withIntermediateDirectories: true)
+            try currentPNGData.write(to: referenceURL)
+            #expect(fileManager.fileExists(atPath: referenceURL.path))
+        } else {
+            let referenceData = try Data(contentsOf: referenceURL)
+            guard let referenceImage = UIImage(data: referenceData),
+                  let cgReference = referenceImage.cgImage else {
+                Issue.record("Failed to load reference image snapshot PNG for snapshot_unspecified_only_canvas")
+                return
+            }
+
+            #expect(cgCurrent.width == cgReference.width, "Pixel width mismatch (\(cgCurrent.width) vs \(cgReference.width))")
+            #expect(cgCurrent.height == cgReference.height, "Pixel height mismatch (\(cgCurrent.height) vs \(cgReference.height))")
+
+            let imagesMatch = compareImages(cgCurrent: cgCurrent, cgReference: cgReference)
+            #expect(imagesMatch, "Rendered snapshot image pixels for snapshot_unspecified_only_canvas do not match reference PNG snapshot")
+        }
+    }
+
     @Test @MainActor func testCompactSourceFilterButtonSnapshotComposition() throws {
         let filterButton = CompactSourceFilterButton(
             availableSources: ["com.apple.health": "Apple Watch", "com.oura.ring": "Oura Ring"],

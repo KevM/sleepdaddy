@@ -31,6 +31,10 @@ struct NightSummaryStagePercentagesTests {
 
     private let minute: TimeInterval = 60
 
+    @Test func percentageStagesMatchesDefaultDisplayedStages() {
+        #expect(NightSummary.percentageStages == SleepTimelineGeometry.defaultDisplayedStages)
+    }
+
     @Test func percentagesSumToOneHundredForATypicalNight() {
         let summary = makeSummary(
             awake: 18 * minute,
