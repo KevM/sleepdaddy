@@ -26,26 +26,26 @@ public struct CompactSourceFilterButton: View {
         self.onToggleHideBriefAwakes = onToggleHideBriefAwakes
     }
 
+    private var isFilterActive: Bool {
+        !selectedSourceIDs.isEmpty || hidesBriefAwakes
+    }
+
     public var body: some View {
         Button {
             showingFilterSheet = true
         } label: {
-            ZStack(alignment: .topTrailing) {
+            // The container is load-bearing: a bare Image as a Button label picks up
+            // different toolbar metrics and shifts the icon ~4pt against its siblings.
+            ZStack {
                 Image(systemName: "line.3.horizontal.decrease.circle")
                     .font(.system(size: 20))
-                    .foregroundColor(.primary)
-
-                if !selectedSourceIDs.isEmpty || hidesBriefAwakes {
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 8, height: 8)
-                        .offset(x: 2, y: -2)
-                }
+                    .foregroundColor(isFilterActive ? .accentColor : .primary)
             }
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
         }
         .accessibilityLabel("Filter sleep sources")
+        .accessibilityValue(isFilterActive ? "Filters active" : "No filters")
         .sheet(isPresented: $showingFilterSheet) {
             NavigationStack {
                 List {
@@ -84,7 +84,7 @@ public struct CompactSourceFilterButton: View {
                                     Spacer()
                                     if isChecked {
                                         Image(systemName: "checkmark")
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(.accentColor)
                                             .fontWeight(.semibold)
                                     }
                                 }

@@ -58,7 +58,7 @@ public struct SleepTimelineCanvas: View {
         GeometryReader { proxy in
             let totalWidth = proxy.size.width
             let totalHeight = proxy.size.height
-            let labelWidth: CGFloat = 54.0
+            let labelWidth: CGFloat = 68.0
             let plotWidth = max(1.0, totalWidth - labelWidth)
 
             let liveViewport = interaction.liveViewport
@@ -79,16 +79,16 @@ public struct SleepTimelineCanvas: View {
                     ForEach(displayedStages, id: \.self) { stage in
                         let yCenter = geom.yCenterPosition(for: stage, displayedStages: displayedStages)
                         let percentage = stagePercentages[stage]
-                        VStack(alignment: .leading, spacing: 1) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(stage.displayName)
-                                .font(.caption2)
+                                .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(stage.themeColor)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                             if let percentage {
                                 Text("\(percentage)%")
-                                    .font(.caption2)
+                                    .font(.footnote)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
                                     .monospacedDigit()

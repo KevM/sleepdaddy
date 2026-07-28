@@ -169,4 +169,59 @@ struct AwakeSpikeSmootherTests {
         #expect(smoothed[1].sourceIdentifier == "com.oura.ring")
         #expect(smoothed[1].startDate == origin.addingTimeInterval(660))
     }
+
+    @Test func testBriefAwakeSeparatedByGapFromPredecessorAbsorbedByTouchingFollower() {
+        let lane = [
+            interval("c1", .core, from: 0, to: 600),
+            // 10-minute gap from 600 to 1200
+            interval("a1", .awake, from: 1200, to: 1260),
+            interval("c2", .core, from: 1260, to: 1800)
+        ]
+
+        let smoothed = smoother.smooth(lane: lane)
+
+        #expect(smoothed.count == 2)
+        #expect(smoothed[0].stage == .core)
+        #expect(smoothed[0].startDate == origin)
+        #expect(smoothed[0].endDate == origin.addingTimeInterval(600))
+        #expect(smoothed[1].stage == .core)
+        #expect(smoothed[1].startDate == origin.addingTimeInterval(1200))
+        #expect(smoothed[1].endDate == origin.addingTimeInterval(1800))
+    }
+
+    @Test func testBriefAwakeUntouchedByNeighborsIsPreserved() {
+        let lane = [
+            interval("c1", .core, from: 0, to: 600),
+            // 10-minute gap from 600 to 1200
+            interval("a1", .awake, from: 1200, to: 1260)
+        ]
+
+        let smoothed = smoother.smooth(lane: lane)
+
+        #expect(smoothed.count == 2)
+        #expect(smoothed[0].stage == .core)
+        #expect(smoothed[0].endDate == origin.addingTimeInterval(600))
+        #expect(smoothed[1].stage == .awake)
+        #expect(smoothed[1].startDate == origin.addingTimeInterval(1200))
+        #expect(smoothed[1].endDate == origin.addingTimeInterval(1260))
+    }
+
+    @Test func testHeadSpikeSeparatedByGapFromFollowerIsPreserved() {
+        let lane = [
+            interval("a1", .awake, from: 0, to: 60),
+            // 9-minute gap from 60 to 600
+            interval("c1", .core, from: 600, to: 1200)
+        ]
+
+        let smoothed = smoother.smooth(lane: lane)
+
+        #expect(smoothed.count == 2)
+        #expect(smoothed[0].stage == .awake)
+        #expect(smoothed[0].startDate == origin)
+        #expect(smoothed[0].endDate == origin.addingTimeInterval(60))
+        #expect(smoothed[1].stage == .core)
+        #expect(smoothed[1].startDate == origin.addingTimeInterval(600))
+        #expect(smoothed[1].endDate == origin.addingTimeInterval(1200))
+    }
 }
+

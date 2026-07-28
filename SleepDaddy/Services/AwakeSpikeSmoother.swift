@@ -20,35 +20,61 @@ public struct AwakeSpikeSmoother: Sendable {
         guard lane.contains(where: isBriefAwake) else { return lane }
         guard lane.contains(where: { !isBriefAwake($0) }) else { return lane }
 
-        var kept: [NormalizedSleepInterval] = []
-        var pendingHeadStart: Date?
+        var mutableLane = lane
+        var result: [NormalizedSleepInterval] = []
+        var i = 0
+        let n = mutableLane.count
 
-        for interval in lane {
-            guard isBriefAwake(interval) else {
-                var next = interval
-                if let headStart = pendingHeadStart {
-                    next = next.copy(startDate: min(headStart, next.startDate))
-                    pendingHeadStart = nil
-                }
-                kept.append(next)
+        while i < n {
+            let current = mutableLane[i]
+
+            if !isBriefAwake(current) {
+                result.append(current)
+                i += 1
                 continue
             }
 
-            if let last = kept.last {
-                kept[kept.count - 1] = last.copy(endDate: max(last.endDate, interval.endDate))
-            } else {
-                // A spike opening the lane has nothing behind it, so the first interval that
-                // survives will reach back over it instead.
-                pendingHeadStart = min(pendingHeadStart ?? interval.startDate, interval.startDate)
+            // Gather contiguous brief awakes that touch each other
+            var briefChain: [NormalizedSleepInterval] = [current]
+            var j = i + 1
+            while j < n && isBriefAwake(mutableLane[j]) && touches(mutableLane[j - 1], mutableLane[j]) {
+                briefChain.append(mutableLane[j])
+                j += 1
             }
+
+            let chainStart = briefChain.first!.startDate
+            let chainEnd = briefChain.last!.endDate
+
+            if let last = result.last, touches(last.endDate, chainStart) {
+                // Absorb forward into preceding interval if it touches the spike chain
+                result[result.count - 1] = last.copy(endDate: max(last.endDate, chainEnd))
+            } else if j < n && !isBriefAwake(mutableLane[j]) && touches(chainEnd, mutableLane[j].startDate) {
+                // Absorb backward into following non-brief interval if it touches the spike chain
+                let following = mutableLane[j]
+                mutableLane[j] = following.copy(startDate: min(chainStart, following.startDate))
+            } else {
+                // Neither neighbor touches the spike chain; preserve the spike(s)
+                result.append(contentsOf: briefChain)
+            }
+
+            i = j
         }
 
-        return coalesced(kept)
+        return coalesced(result)
     }
 
     private func isBriefAwake(_ interval: NormalizedSleepInterval) -> Bool {
         interval.stage == .awake && interval.duration <= Self.briefAwakeThreshold
     }
+
+    private func touches(_ aEnd: Date, _ bStart: Date) -> Bool {
+        abs(bStart.timeIntervalSince(aEnd)) < 0.001
+    }
+
+    private func touches(_ a: NormalizedSleepInterval, _ b: NormalizedSleepInterval) -> Bool {
+        touches(a.endDate, b.startDate)
+    }
+
 
     /// Merges neighbours that now touch and agree on stage and source, matching the rule the
     /// assembler uses when it builds the primary lane.
