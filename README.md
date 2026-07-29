@@ -112,4 +112,4 @@ The tag must equal `v` followed by the `MARKETING_VERSION` in `project.yml`.
 
 ## License
 
-Copyright © 2026. All rights reserved.
+SleepDaddy is available under the [MIT License](LICENSE).
