@@ -70,10 +70,18 @@ to TestFlight. The generated Xcode project remains uncommitted.
 1. Create the `fm.rodeo.SleepDaddy` App ID in Apple Developer and enable HealthKit.
 2. Create the corresponding app in App Store Connect.
 3. Ensure the App Store Connect API key can access the app.
-4. Configure `.env` with shell-compatible quoted assignments (for example, `KEY='value'`)
+4. Install Ruby 3.3 and Bundler, then install and verify the repository's locked bundle:
+   ```bash
+   ruby --version
+   gem install bundler
+   bundle config set --local frozen true
+   bundle install
+   bundle check
+   ```
+5. Configure `.env` with shell-compatible quoted assignments (for example, `KEY='value'`)
    for `DEVELOPMENT_TEAM` and the Fastlane signing variables. `generate.sh` sources `.env`
    as shell code, so its contents must be trusted.
-5. From an authorized local machine, run `bundle exec fastlane match appstore` to add the
+6. From an authorized local machine, run `bundle exec fastlane match appstore` to add the
    HealthKit-enabled SleepDaddy App Store profile to the shared private match repository.
 
 ### GitHub Actions secrets
@@ -93,8 +101,13 @@ Merged pull requests increment `CURRENT_PROJECT_VERSION` and synchronize
 **Release to TestFlight** workflow manually or push a matching version tag:
 
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+MARKETING_VERSION="$(
+  sed -nE 's/^[[:space:]]*MARKETING_VERSION: "([0-9]+\.[0-9]+\.[0-9]+)"[[:space:]]*$/\1/p' \
+    project.yml
+)"
+test -n "$MARKETING_VERSION"
+git tag "v${MARKETING_VERSION}"
+git push origin "v${MARKETING_VERSION}"
 ```
 
 The tag must equal `v` followed by the `MARKETING_VERSION` in `project.yml`.

@@ -14,23 +14,23 @@ assert_contains() {
   }
 }
 
-cp "$repo_root/project.yml" "$fixture_dir/project.yml"
+cp "$repo_root/Scripts/Fixtures/release-project.yml" "$fixture_dir/project.yml"
 new_build="$("$repo_root/Scripts/bump-build-number.sh" "$fixture_dir/project.yml")"
-[[ "$new_build" == "2" ]]
-assert_contains 'CURRENT_PROJECT_VERSION: "2"' "$fixture_dir/project.yml"
-assert_contains 'MARKETING_VERSION: "1.0.2"' "$fixture_dir/project.yml"
+[[ "$new_build" == "42" ]]
+assert_contains 'CURRENT_PROJECT_VERSION: "42"' "$fixture_dir/project.yml"
+assert_contains 'MARKETING_VERSION: "1.0.42"' "$fixture_dir/project.yml"
 
 "$repo_root/Scripts/validate-release-version.sh" \
-  "v1.0.2" "$fixture_dir/project.yml"
+  "v1.0.42" "$fixture_dir/project.yml"
 
 if "$repo_root/Scripts/validate-release-version.sh" \
-  "v1.0.3" "$fixture_dir/project.yml"; then
+  "v1.0.43" "$fixture_dir/project.yml"; then
   echo "mismatched release tag unexpectedly passed" >&2
   exit 1
 fi
 
 if "$repo_root/Scripts/validate-release-version.sh" \
-  "release-1.0.2" "$fixture_dir/project.yml"; then
+  "release-1.0.42" "$fixture_dir/project.yml"; then
   echo "malformed release tag unexpectedly passed" >&2
   exit 1
 fi
@@ -41,7 +41,7 @@ if "$repo_root/Scripts/bump-build-number.sh" "$fixture_dir/missing.yml"; then
   exit 1
 fi
 
-cp "$repo_root/project.yml" "$fixture_dir/malformed.yml"
+cp "$repo_root/Scripts/Fixtures/release-project.yml" "$fixture_dir/malformed.yml"
 sed -i.bak -E \
   's/CURRENT_PROJECT_VERSION: "[0-9]+"/CURRENT_PROJECT_VERSION: "one"/' \
   "$fixture_dir/malformed.yml"

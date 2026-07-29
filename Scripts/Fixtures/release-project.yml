@@ -1,0 +1,16 @@
+name: SleepDaddyReleaseFixture
+options:
+  bundleIdPrefix: fm.rodeo
+settings:
+  base:
+    DEVELOPMENT_TEAM: RELEASESCRIPT
+    MARKETING_VERSION: "1.0.41"
+    CURRENT_PROJECT_VERSION: "41"
+    SWIFT_VERSION: "6.0"
+targets:
+  SleepDaddy:
+    type: application
+    platform: iOS
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: fm.rodeo.SleepDaddy
+      CODE_SIGN_STYLE: Automatic
