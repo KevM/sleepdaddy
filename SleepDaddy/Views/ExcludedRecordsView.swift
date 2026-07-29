@@ -36,7 +36,7 @@ public struct ExcludedRecordsView: View {
                 .frame(maxWidth: .infinity)
                 .listRowBackground(Color.clear)
             } else {
-                Section(footer: Button("Restore All Exclusions", role: .destructive, action: onRestoreAll)) {
+                Section {
                     ForEach(Array(excludedIDs).sorted(), id: \.self) { sampleID in
                         HStack(alignment: .top) {
                             if let detail = excludedDetails[sampleID] {
@@ -85,6 +85,10 @@ public struct ExcludedRecordsView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                }
+
+                Section {
+                    Button("Restore All Exclusions", role: .destructive, action: onRestoreAll)
                 }
             }
         }

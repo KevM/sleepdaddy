@@ -60,6 +60,22 @@ public struct NightHeaderView: View {
         }
     }
 
+    @ViewBuilder
+    private var datePickerContent: some View {
+        let selection = Binding(
+            get: { night.date },
+            set: { newDate in
+                onSelectDate(newDate)
+                showingDatePicker = false
+            }
+        )
+        if let range = dateRange {
+            DatePicker("Select Date", selection: selection, in: range, displayedComponents: [.date])
+        } else {
+            DatePicker("Select Date", selection: selection, displayedComponents: [.date])
+        }
+    }
+
     public var body: some View {
         HStack(spacing: 8) {
             Button(action: {
@@ -90,8 +106,9 @@ public struct NightHeaderView: View {
                             .foregroundColor(.primary)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
-                        Image(systemName: "calendar")
-                            .font(.caption)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .fontWeight(.medium)
                             .foregroundColor(.secondary)
                     }
                     Text(durationFormatted)
@@ -164,47 +181,18 @@ public struct NightHeaderView: View {
         }
         .sheet(isPresented: $showingDatePicker) {
             NavigationStack {
-                VStack {
-                    if let range = dateRange {
-                        DatePicker(
-                            "Select Date",
-                            selection: Binding(
-                                get: { night.date },
-                                set: { newDate in
-                                    onSelectDate(newDate)
-                                    showingDatePicker = false
-                                }
-                            ),
-                            in: range,
-                            displayedComponents: [.date]
-                        )
-                        .datePickerStyle(.graphical)
-                        .padding()
-                    } else {
-                        DatePicker(
-                            "Select Date",
-                            selection: Binding(
-                                get: { night.date },
-                                set: { newDate in
-                                    onSelectDate(newDate)
-                                    showingDatePicker = false
-                                }
-                            ),
-                            displayedComponents: [.date]
-                        )
-                        .datePickerStyle(.graphical)
-                        .padding()
-                    }
-                }
-                .navigationTitle("Select Night")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
-                            showingDatePicker = false
+                datePickerContent
+                    .datePickerStyle(.graphical)
+                    .padding()
+                    .navigationTitle("Select Night")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") {
+                                showingDatePicker = false
+                            }
                         }
                     }
-                }
             }
             .presentationDetents([.medium])
         }

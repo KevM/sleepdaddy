@@ -83,7 +83,7 @@ public struct IntervalInspectorSheet: View {
                 }
 
                 if let conflict = matchingConflict {
-                    Section(header: Text("Source Conflict Details").foregroundColor(.orange)) {
+                    Section(header: Text("Source Conflict Details")) {
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Overlapping sources disagree on stage during this interval", systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption)
@@ -118,7 +118,6 @@ public struct IntervalInspectorSheet: View {
                         onDismiss()
                     } label: {
                         Label("Exclude Record Locally", systemImage: "eye.slash")
-                            .foregroundColor(.red)
                     }
                 } footer: {
                     Text("Exclusion is local to SleepDaddy and does not modify HealthKit.")
@@ -129,7 +128,7 @@ public struct IntervalInspectorSheet: View {
             .navigationTitle("Interval Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         onDismiss()
                     }
