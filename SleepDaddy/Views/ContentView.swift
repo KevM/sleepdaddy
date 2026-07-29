@@ -163,7 +163,7 @@ public struct ContentView: View {
                                 .contentShape(Rectangle())
                         }
                         .accessibilityLabel("Settings")
-                        .accessibilityHint("Opens sleep data settings and exclusions")
+                        .accessibilityHint("Opens sleep data settings")
                     }
                 }
             }
@@ -177,10 +177,6 @@ public struct ContentView: View {
                         get: { model.preferences.coreWindowEndHour },
                         set: { end in model.updateCoreWindow(startHour: model.preferences.coreWindowStartHour, endHour: end) }
                     ),
-                    excludedIDs: model.preferences.excludedSampleIDs,
-                    excludedDetails: model.excludedRecordDetails,
-                    onRestoreExclusion: { id in model.restoreSample(id: id) },
-                    onRestoreAllExclusions: { model.restoreAllExclusions() },
                     onDismiss: { model.showSettings = false }
                 )
             }
@@ -214,8 +210,9 @@ public struct ContentView: View {
 
 /// Backs previews with fixture sleep data and an isolated preferences domain, so a preview
 /// never reads or writes the simulator's real preferences.
-private func previewModel(hidesBriefAwakes: Bool) -> NightBrowserModel {
-    let suiteName = "fm.rodeo.sleepdaddy.previews.\(hidesBriefAwakes)"
+private func previewModel(hidesBriefAwakes: Bool,
+                          isHealthKitAuthorized: Bool = true) -> NightBrowserModel {
+    let suiteName = "fm.rodeo.sleepdaddy.previews.\(hidesBriefAwakes).\(isHealthKitAuthorized)"
     let defaults = UserDefaults(suiteName: suiteName)!
     defaults.removePersistentDomain(forName: suiteName)
 
@@ -225,7 +222,7 @@ private func previewModel(hidesBriefAwakes: Bool) -> NightBrowserModel {
     preferencesStore.save(preferences)
 
     return NightBrowserModel(
-        store: FixtureSleepStore(),
+        store: FixtureSleepStore(isAuthorized: isHealthKitAuthorized),
         preferencesStore: preferencesStore
     )
 }
@@ -241,6 +238,10 @@ private func previewModel(hidesBriefAwakes: Bool) -> NightBrowserModel {
 
 #Preview("No filter") {
     ContentView(model: previewModel(hidesBriefAwakes: false))
+}
+
+#Preview("HealthKit not authorized") {
+    ContentView(model: previewModel(hidesBriefAwakes: false, isHealthKitAuthorized: false))
 }
 
 #endif

@@ -8,7 +8,6 @@ struct SleepPreferencesTests {
         #expect(prefs.coreWindowStartHour == 19)
         #expect(prefs.coreWindowEndHour == 7)
         #expect(prefs.selectedSourceIdentifiers.isEmpty)
-        #expect(prefs.excludedSampleIDs.isEmpty)
         #expect(prefs.hidesBriefAwakes == false)
     }
 
@@ -21,26 +20,23 @@ struct SleepPreferencesTests {
 
         prefs.coreWindowStartHour = 20
         prefs.selectedSourceIdentifiers = ["com.apple.health"]
-        prefs.excludedSampleIDs = ["sample-1"]
 
         store.save(prefs)
 
         let reloaded = store.load()
         #expect(reloaded.coreWindowStartHour == 20)
         #expect(reloaded.selectedSourceIdentifiers.contains("com.apple.health"))
-        #expect(reloaded.excludedSampleIDs.contains("sample-1"))
     }
 
     @Test func testDecodingPreferencesSavedBeforeBriefAwakeFlagKeepsEverythingElse() throws {
         // Written by a build that predates `hidesBriefAwakes`. Decoding must not throw:
         // PreferencesStore turns a decode failure into `.default`, silently wiping the
-        // user's window, sources, and exclusions.
+        // user's window and sources.
         let legacyJSON = Data("""
         {
             "coreWindowStartHour": 20,
             "coreWindowEndHour": 6,
-            "selectedSourceIdentifiers": ["com.apple.health"],
-            "excludedSampleIDs": ["sample-1"]
+            "selectedSourceIdentifiers": ["com.apple.health"]
         }
         """.utf8)
 
@@ -49,7 +45,6 @@ struct SleepPreferencesTests {
         #expect(prefs.coreWindowStartHour == 20)
         #expect(prefs.coreWindowEndHour == 6)
         #expect(prefs.selectedSourceIdentifiers == ["com.apple.health"])
-        #expect(prefs.excludedSampleIDs == ["sample-1"])
         #expect(prefs.hidesBriefAwakes == false)
     }
 

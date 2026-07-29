@@ -25,7 +25,7 @@ public struct SlimContextNavigator: View {
             GeometryReader { proxy in
                 let width = proxy.size.width
                 let height = proxy.size.height
-                let trackHeight: CGFloat = 24
+                let trackHeight: CGFloat = 14
 
                 let currentViewport = TimelineViewport(normalizing: viewportStart, end: viewportEnd)
                 let geom = SleepTimelineGeometry(
@@ -50,30 +50,25 @@ public struct SlimContextNavigator: View {
                     // Track visual element centered within 44pt height
                     ZStack(alignment: .leading) {
                         // Full detected background track
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.gray.opacity(0.2))
+                        Capsule()
+                            .fill(.quaternary)
                             .frame(height: trackHeight)
 
-                        // Core window demarcation track
-                        Rectangle()
-                            .fill(Color.accentColor.opacity(0.15))
-                            .frame(width: max(2.0, coreX2 - coreX1), height: trackHeight)
+                        // Core window demarcation region
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.2))
+                            .frame(width: max(trackHeight, coreX2 - coreX1), height: trackHeight)
                             .offset(x: coreX1)
 
-                        // Core window border markers
-                        Path { path in
-                            path.move(to: CGPoint(x: coreX1, y: 0))
-                            path.addLine(to: CGPoint(x: coreX1, y: trackHeight))
-                            path.move(to: CGPoint(x: coreX2, y: 0))
-                            path.addLine(to: CGPoint(x: coreX2, y: trackHeight))
-                        }
-                        .stroke(Color.accentColor.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-
-                        // Visible viewport rectangle indicator
-                        RoundedRectangle(cornerRadius: 4)
-                            .stroke(Color.primary, lineWidth: 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.accentColor.opacity(0.3)))
-                            .frame(width: vpWidth, height: trackHeight)
+                        // Visible viewport handle
+                        Capsule()
+                            .fill(Color.accentColor.opacity(0.35))
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                            )
+                            .frame(width: max(trackHeight, vpWidth), height: trackHeight)
+                            .shadow(color: Color.accentColor.opacity(0.25), radius: 3, y: 1)
                             .offset(x: vpX1)
                     }
                 }

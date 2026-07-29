@@ -3,18 +3,15 @@ import SwiftUI
 public struct IntervalInspectorSheet: View {
     let interval: NormalizedSleepInterval
     let conflicts: [TimelineConflict]
-    let onExclude: (String) -> Void
     let onDismiss: () -> Void
 
     public init(
         interval: NormalizedSleepInterval,
         conflicts: [TimelineConflict],
-        onExclude: @escaping (String) -> Void,
         onDismiss: @escaping () -> Void
     ) {
         self.interval = interval
         self.conflicts = conflicts
-        self.onExclude = onExclude
         self.onDismiss = onDismiss
     }
 
@@ -83,7 +80,7 @@ public struct IntervalInspectorSheet: View {
                 }
 
                 if let conflict = matchingConflict {
-                    Section(header: Text("Source Conflict Details").foregroundColor(.orange)) {
+                    Section(header: Text("Source Conflict Details")) {
                         VStack(alignment: .leading, spacing: 6) {
                             Label("Overlapping sources disagree on stage during this interval", systemImage: "exclamationmark.triangle.fill")
                                 .font(.caption)
@@ -111,25 +108,11 @@ public struct IntervalInspectorSheet: View {
                         }
                     }
                 }
-
-                Section {
-                    Button(role: .destructive) {
-                        onExclude(interval.id)
-                        onDismiss()
-                    } label: {
-                        Label("Exclude Record Locally", systemImage: "eye.slash")
-                            .foregroundColor(.red)
-                    }
-                } footer: {
-                    Text("Exclusion is local to SleepDaddy and does not modify HealthKit.")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
             }
             .navigationTitle("Interval Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         onDismiss()
                     }

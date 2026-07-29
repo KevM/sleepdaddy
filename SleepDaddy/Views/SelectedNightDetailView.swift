@@ -83,9 +83,6 @@ public struct SelectedNightDetailView: View {
                 IntervalInspectorSheet(
                     interval: interval,
                     conflicts: night.conflicts,
-                    onExclude: { _ in
-                        model.excludeSample(interval)
-                    },
                     onDismiss: {
                         model.selectedInterval = nil
                     }

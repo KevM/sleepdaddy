@@ -18,36 +18,6 @@ struct NightBrowserModelTests {
         #expect(!model.availableSources.isEmpty)
     }
 
-    @Test @MainActor func testExcludingAndRestoringRecord() async {
-        let fixtureStore = FixtureSleepStore()
-        let testDefaults = UserDefaults(suiteName: "NightBrowserModelTests2")!
-        testDefaults.removePersistentDomain(forName: "NightBrowserModelTests2")
-        let prefsStore = PreferencesStore(userDefaults: testDefaults)
-
-        let model = NightBrowserModel(store: fixtureStore, preferencesStore: prefsStore)
-        await model.loadData()
-
-        guard let night = model.selectedAssembledNight,
-              let firstItem = night.rawIntervals.first else {
-            Issue.record("No fixture interval found")
-            return
-        }
-
-        let targetItem = firstItem
-        model.excludeSample(targetItem)
-
-        #expect(model.preferences.excludedSampleIDs.contains(targetItem.id))
-        #expect(model.excludedRecordDetails[targetItem.id]?.id == targetItem.id)
-
-        if let updatedNight = model.selectedAssembledNight {
-            #expect(!updatedNight.rawIntervals.contains(where: { $0.id == targetItem.id }))
-        }
-
-        model.restoreSample(id: targetItem.id)
-        #expect(!model.preferences.excludedSampleIDs.contains(targetItem.id))
-        #expect(model.excludedRecordDetails[targetItem.id] == nil)
-    }
-
     private static let testCalendar = Calendar.current
 
     private static var july25Noon: Date {
@@ -110,7 +80,7 @@ struct NightBrowserModelTests {
         #expect(Self.testCalendar.isDate(model.selectedDate, inSameDayAs: Self.july24Date))
     }
 
-    @Test @MainActor func fullNightViewportIncludesConfiguredNightWindow() async {
+    @Test @MainActor func viewportFocusesDetectedSleepWithGutter() async {
         let sleepStart = Self.testCalendar.date(
             bySettingHour: 23,
             minute: 0,
@@ -138,18 +108,10 @@ struct NightBrowserModelTests {
 
         await model.loadData()
 
-        let expectedStart = Self.testCalendar.date(
-            bySettingHour: 19,
-            minute: 0,
-            second: 0,
-            of: Self.july24Date
-        )!
-        let expectedEnd = Self.testCalendar.date(
-            bySettingHour: 7,
-            minute: 0,
-            second: 0,
-            of: Self.july25Noon
-        )!
+        // The detected span (23:00 – 06:00) is padded by the gutter rather than expanded
+        // to the full configured window (19:00 – 07:00), so empty configured time is hidden.
+        let expectedStart = sleepStart.addingTimeInterval(-AssembledNight.detectedViewportGutter)
+        let expectedEnd = sleepEnd.addingTimeInterval(AssembledNight.detectedViewportGutter)
         #expect(model.viewportStart == expectedStart)
         #expect(model.viewportEnd == expectedEnd)
     }
