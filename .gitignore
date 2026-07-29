@@ -32,3 +32,18 @@ Thumbs.db
 
 # Claude Code local state (per-machine; .claude/settings.json stays tracked)
 .claude/settings.local.json
+
+# Local release configuration and credentials
+.env
+*.p8
+AuthKey_*.p8
+*.mobileprovision
+
+# Bundler / Fastlane output
+vendor/bundle/
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/test_output/
+fastlane/README.md
+*.ipa
+*.dSYM.zip

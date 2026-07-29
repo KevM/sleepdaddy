@@ -60,6 +60,58 @@ Run the unit test suite using Swift Testing:
 xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
 ```
 
+## Deployment
+
+SleepDaddy uses GitHub Actions and Fastlane to upload tagged or manually dispatched releases
+to TestFlight. The generated Xcode project remains uncommitted.
+
+### One-time Apple setup
+
+1. Create the `fm.rodeo.SleepDaddy` App ID in Apple Developer and enable HealthKit.
+2. Create the corresponding app in App Store Connect.
+3. Ensure the App Store Connect API key can access the app.
+4. Install Ruby 3.3 and Bundler, then install and verify the repository's locked bundle:
+   ```bash
+   ruby --version
+   gem install bundler
+   bundle config set --local frozen true
+   bundle install
+   bundle check
+   ```
+5. Configure `.env` with shell-compatible quoted assignments (for example, `KEY='value'`)
+   for `DEVELOPMENT_TEAM` and the Fastlane signing variables. `generate.sh` sources `.env`
+   as shell code, so its contents must be trusted.
+6. From an authorized local machine, run `bundle exec fastlane match appstore` to add the
+   HealthKit-enabled SleepDaddy App Store profile to the shared private match repository.
+
+### GitHub Actions secrets
+
+- `DEVELOPMENT_TEAM`
+- `ASC_KEY_ID`
+- `ASC_ISSUER_ID`
+- `ASC_KEY_CONTENT` — base64-encoded App Store Connect `.p8` key
+- `MATCH_GIT_URL`
+- `MATCH_PASSWORD`
+- `MATCH_GIT_BASIC_AUTHORIZATION`
+
+### Releasing
+
+Merged pull requests increment `CURRENT_PROJECT_VERSION` and synchronize
+`MARKETING_VERSION` to `1.0.<build>`. To release the checked-in version, either run the
+**Release to TestFlight** workflow manually or push a matching version tag:
+
+```bash
+MARKETING_VERSION="$(
+  sed -nE 's/^[[:space:]]*MARKETING_VERSION: "([0-9]+\.[0-9]+\.[0-9]+)"[[:space:]]*$/\1/p' \
+    project.yml
+)"
+test -n "$MARKETING_VERSION"
+git tag "v${MARKETING_VERSION}"
+git push origin "v${MARKETING_VERSION}"
+```
+
+The tag must equal `v` followed by the `MARKETING_VERSION` in `project.yml`.
+
 ## License
 
 Copyright © 2026. All rights reserved.
