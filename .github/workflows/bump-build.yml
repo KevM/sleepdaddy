@@ -8,6 +8,7 @@ on:
 concurrency:
   group: bump-build
   cancel-in-progress: false
+  queue: max
 
 jobs:
   bump:
