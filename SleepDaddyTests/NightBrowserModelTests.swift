@@ -110,7 +110,7 @@ struct NightBrowserModelTests {
         #expect(Self.testCalendar.isDate(model.selectedDate, inSameDayAs: Self.july24Date))
     }
 
-    @Test @MainActor func fullNightViewportIncludesConfiguredNightWindow() async {
+    @Test @MainActor func viewportFocusesDetectedSleepWithGutter() async {
         let sleepStart = Self.testCalendar.date(
             bySettingHour: 23,
             minute: 0,
@@ -138,18 +138,10 @@ struct NightBrowserModelTests {
 
         await model.loadData()
 
-        let expectedStart = Self.testCalendar.date(
-            bySettingHour: 19,
-            minute: 0,
-            second: 0,
-            of: Self.july24Date
-        )!
-        let expectedEnd = Self.testCalendar.date(
-            bySettingHour: 7,
-            minute: 0,
-            second: 0,
-            of: Self.july25Noon
-        )!
+        // The detected span (23:00 – 06:00) is padded by the gutter rather than expanded
+        // to the full configured window (19:00 – 07:00), so empty configured time is hidden.
+        let expectedStart = sleepStart.addingTimeInterval(-AssembledNight.detectedViewportGutter)
+        let expectedEnd = sleepEnd.addingTimeInterval(AssembledNight.detectedViewportGutter)
         #expect(model.viewportStart == expectedStart)
         #expect(model.viewportEnd == expectedEnd)
     }

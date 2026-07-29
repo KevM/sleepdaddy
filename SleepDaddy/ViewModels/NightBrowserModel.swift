@@ -139,8 +139,8 @@ public final class NightBrowserModel: @unchecked Sendable {
 
     public func resetViewportToSelectedNight() {
         if let current = selectedAssembledNight {
-            self.viewportStart = current.timelineStart
-            self.viewportEnd = current.timelineEnd
+            self.viewportStart = current.preferredViewportStart
+            self.viewportEnd = current.preferredViewportEnd
         } else {
             let calendar = Calendar.current
             let start = calendar.date(bySettingHour: preferences.coreWindowStartHour, minute: 0, second: 0, of: selectedDate) ?? selectedDate

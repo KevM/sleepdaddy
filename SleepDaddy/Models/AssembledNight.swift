@@ -20,17 +20,33 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
     public let summary: NightSummary
     public let hasSleepData: Bool
 
+    /// Padding kept on each side of the detected sleep span when the timeline first opens,
+    /// so the data never sits flush against the edge of the view.
+    public static let detectedViewportGutter: TimeInterval = 20 * 60
+
     public var isExtended: Bool {
         detectedStart < coreWindowStart || detectedEnd > coreWindowEnd
     }
 
-    /// Full navigable timeline, including both configured context and any detected extension.
+    /// The window the timeline opens to: the detected sleep span padded by a gutter on each
+    /// side. The configured core window acts only as a baseline the detection expands within,
+    /// so an empty stretch of the configured night is never shown when the data is narrower.
+    public var preferredViewportStart: Date {
+        detectedStart.addingTimeInterval(-Self.detectedViewportGutter)
+    }
+
+    public var preferredViewportEnd: Date {
+        detectedEnd.addingTimeInterval(Self.detectedViewportGutter)
+    }
+
+    /// Full navigable timeline. Spans the configured context and the gutter-padded detected
+    /// span, so the preferred viewport always fits inside without clamping away its gutter.
     public var timelineStart: Date {
-        min(coreWindowStart, detectedStart)
+        min(coreWindowStart, preferredViewportStart)
     }
 
     public var timelineEnd: Date {
-        max(coreWindowEnd, detectedEnd)
+        max(coreWindowEnd, preferredViewportEnd)
     }
 
     public init(
