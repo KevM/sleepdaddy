@@ -70,7 +70,9 @@ to TestFlight. The generated Xcode project remains uncommitted.
 1. Create the `fm.rodeo.SleepDaddy` App ID in Apple Developer and enable HealthKit.
 2. Create the corresponding app in App Store Connect.
 3. Ensure the App Store Connect API key can access the app.
-4. Configure `.env` with `DEVELOPMENT_TEAM` and the Fastlane signing variables.
+4. Configure `.env` with shell-compatible quoted assignments (for example, `KEY='value'`)
+   for `DEVELOPMENT_TEAM` and the Fastlane signing variables. `generate.sh` sources `.env`
+   as shell code, so its contents must be trusted.
 5. From an authorized local machine, run `bundle exec fastlane match appstore` to add the
    HealthKit-enabled SleepDaddy App Store profile to the shared private match repository.
 
