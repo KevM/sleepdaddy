@@ -18,36 +18,6 @@ struct NightBrowserModelTests {
         #expect(!model.availableSources.isEmpty)
     }
 
-    @Test @MainActor func testExcludingAndRestoringRecord() async {
-        let fixtureStore = FixtureSleepStore()
-        let testDefaults = UserDefaults(suiteName: "NightBrowserModelTests2")!
-        testDefaults.removePersistentDomain(forName: "NightBrowserModelTests2")
-        let prefsStore = PreferencesStore(userDefaults: testDefaults)
-
-        let model = NightBrowserModel(store: fixtureStore, preferencesStore: prefsStore)
-        await model.loadData()
-
-        guard let night = model.selectedAssembledNight,
-              let firstItem = night.rawIntervals.first else {
-            Issue.record("No fixture interval found")
-            return
-        }
-
-        let targetItem = firstItem
-        model.excludeSample(targetItem)
-
-        #expect(model.preferences.excludedSampleIDs.contains(targetItem.id))
-        #expect(model.excludedRecordDetails[targetItem.id]?.id == targetItem.id)
-
-        if let updatedNight = model.selectedAssembledNight {
-            #expect(!updatedNight.rawIntervals.contains(where: { $0.id == targetItem.id }))
-        }
-
-        model.restoreSample(id: targetItem.id)
-        #expect(!model.preferences.excludedSampleIDs.contains(targetItem.id))
-        #expect(model.excludedRecordDetails[targetItem.id] == nil)
-    }
-
     private static let testCalendar = Calendar.current
 
     private static var july25Noon: Date {

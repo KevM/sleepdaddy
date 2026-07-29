@@ -163,7 +163,7 @@ public struct ContentView: View {
                                 .contentShape(Rectangle())
                         }
                         .accessibilityLabel("Settings")
-                        .accessibilityHint("Opens sleep data settings and exclusions")
+                        .accessibilityHint("Opens sleep data settings")
                     }
                 }
             }
@@ -177,10 +177,6 @@ public struct ContentView: View {
                         get: { model.preferences.coreWindowEndHour },
                         set: { end in model.updateCoreWindow(startHour: model.preferences.coreWindowStartHour, endHour: end) }
                     ),
-                    excludedIDs: model.preferences.excludedSampleIDs,
-                    excludedDetails: model.excludedRecordDetails,
-                    onRestoreExclusion: { id in model.restoreSample(id: id) },
-                    onRestoreAllExclusions: { model.restoreAllExclusions() },
                     onDismiss: { model.showSettings = false }
                 )
             }

@@ -17,9 +17,6 @@ public final class NightBrowserModel: @unchecked Sendable {
     public private(set) var availableSources: [String: String] = [:] // [Identifier: Name]
     public private(set) var assembledNights: [AssembledNight] = []
 
-    /// Excluded record metadata map (sample ID -> NormalizedSleepInterval)
-    public private(set) var excludedRecordDetails: [String: NormalizedSleepInterval] = [:]
-
     public var selectedDate: Date = Calendar.current.startOfDay(for: Date()) {
         didSet {
             selectedInterval = nil
@@ -86,9 +83,6 @@ public final class NightBrowserModel: @unchecked Sendable {
             var sources: [String: String] = [:]
             for interval in raw {
                 sources[interval.sourceIdentifier] = interval.sourceName
-                if preferences.excludedSampleIDs.contains(interval.id) {
-                    excludedRecordDetails[interval.id] = interval
-                }
             }
             self.availableSources = sources
 
@@ -112,8 +106,8 @@ public final class NightBrowserModel: @unchecked Sendable {
     }
 
     /// - Parameter preservingViewport: pass `true` only when the change cannot move a night's
-    ///   bounds — a display-only preference. Source selection, exclusions, and the core window
-    ///   all shift `detectedStart` / `detectedEnd`, so those must re-derive the viewport.
+    ///   bounds — a display-only preference. Source selection and the core window
+    ///   both shift `detectedStart` / `detectedEnd`, so those must re-derive the viewport.
     public func reassembleNights(preservingViewport: Bool = false) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now())
@@ -175,30 +169,6 @@ public final class NightBrowserModel: @unchecked Sendable {
         // would leave the inspector open over a segment the canvas can no longer emphasise.
         selectedInterval = nil
         reassembleNights(preservingViewport: true)
-    }
-
-    public func excludeSample(_ interval: NormalizedSleepInterval) {
-        preferences.excludedSampleIDs.insert(interval.id)
-        excludedRecordDetails[interval.id] = interval
-        preferencesStore.save(preferences)
-        if selectedInterval?.id == interval.id {
-            selectedInterval = nil
-        }
-        reassembleNights()
-    }
-
-    public func restoreSample(id: String) {
-        preferences.excludedSampleIDs.remove(id)
-        excludedRecordDetails.removeValue(forKey: id)
-        preferencesStore.save(preferences)
-        reassembleNights()
-    }
-
-    public func restoreAllExclusions() {
-        preferences.excludedSampleIDs.removeAll()
-        excludedRecordDetails.removeAll()
-        preferencesStore.save(preferences)
-        reassembleNights()
     }
 
     public func updateCoreWindow(startHour: Int, endHour: Int) {

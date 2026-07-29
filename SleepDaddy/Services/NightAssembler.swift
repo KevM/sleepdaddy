@@ -37,12 +37,9 @@ public struct NightAssembler: Sendable {
         let safetyCapStart = coreWindowStart.addingTimeInterval(-4 * 3600)
         let safetyCapEnd = coreWindowEnd.addingTimeInterval(4 * 3600)
 
-        // Step 1 & 2: Filter by source selection and local sample exclusions
+        // Filter by source selection
         let selectedSet = Set(preferences.selectedSourceIdentifiers)
         let eligibleIntervals = allNormalizedIntervals.filter { interval in
-            if preferences.excludedSampleIDs.contains(interval.id) {
-                return false
-            }
             if !selectedSet.isEmpty {
                 return selectedSet.contains(interval.sourceIdentifier)
             }
