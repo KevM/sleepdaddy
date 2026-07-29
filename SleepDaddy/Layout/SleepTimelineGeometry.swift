@@ -429,6 +429,13 @@ struct TimelineTimeLabelCandidate: Equatable, Sendable {
 }
 
 struct TimelineTimeLabelLayout: Equatable, Sendable {
+    /// Clear space required between adjacent time labels.
+    ///
+    /// Bounds that merely touch are not an overlap geometrically, but they render as a single
+    /// run of text — "11:00 PM1:00 AM" — so labels must be separated by this much or one of
+    /// them is culled.
+    static let minimumGap: CGFloat = 8.0
+
     let candidateIndex: Int
     let centerX: CGFloat
     let labelWidth: CGFloat
@@ -437,6 +444,8 @@ struct TimelineTimeLabelLayout: Equatable, Sendable {
     private var maxX: CGFloat { centerX + labelWidth / 2 }
 
     fileprivate func overlaps(anyOf layouts: [Self]) -> Bool {
-        layouts.contains { minX < $0.maxX && $0.minX < maxX }
+        layouts.contains {
+            minX < $0.maxX + Self.minimumGap && $0.minX < maxX + Self.minimumGap
+        }
     }
 }
