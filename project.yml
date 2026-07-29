@@ -69,3 +69,8 @@ targets:
       SWIFT_VERSION: "6.0"
     dependencies:
       - target: SleepDaddy
+schemes:
+  SleepDaddy:
+    build:
+      targets:
+        SleepDaddy: all
