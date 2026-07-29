@@ -74,3 +74,6 @@ schemes:
     build:
       targets:
         SleepDaddy: all
+    test:
+      targets:
+        - SleepDaddyTests
