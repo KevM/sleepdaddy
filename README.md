@@ -78,9 +78,7 @@ to TestFlight. The generated Xcode project remains uncommitted.
    bundle install
    bundle check
    ```
-5. Configure `.env` with shell-compatible quoted assignments (for example, `KEY='value'`)
-   for `DEVELOPMENT_TEAM` and the Fastlane signing variables. `generate.sh` sources `.env`
-   as shell code, so its contents must be trusted.
+5. Configure `.env.local` with `DEVELOPMENT_TEAM='YOUR_TEAM_ID'` for local development. `generate.sh` sources `.env` and `.env.local` as shell code to populate `DEVELOPMENT_TEAM` when generating the Xcode project. CI continues to receive `DEVELOPMENT_TEAM` and signing variables through GitHub Actions secrets.
 6. From an authorized local machine, run `bundle exec fastlane match appstore` to add the
    HealthKit-enabled SleepDaddy App Store profile to the shared private match repository.
 

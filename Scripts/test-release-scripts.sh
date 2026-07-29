@@ -51,4 +51,11 @@ if "$repo_root/Scripts/bump-build-number.sh" "$fixture_dir/malformed.yml"; then
   exit 1
 fi
 
+grep -q '^\.env\.local$' "$repo_root/.gitignore"
+grep -q 'if \[\[ -f .env.local \]\]' "$repo_root/generate.sh"
+if grep -q 'DEVELOPMENT_TEAM: 6HQGHHRK87' "$repo_root/project.yml"; then
+  echo "project.yml contains a hard-coded development team" >&2
+  exit 1
+fi
+
 echo "release script tests passed"

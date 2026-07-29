@@ -8,4 +8,11 @@ if [[ -f .env ]]; then
   set +a
 fi
 
+if [[ -f .env.local ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env.local
+  set +a
+fi
+
 xcodegen generate
