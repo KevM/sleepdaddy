@@ -2,13 +2,15 @@ import Foundation
 
 public final class FixtureSleepStore: HealthKitSleepStoreProtocol, @unchecked Sendable {
     public var customIntervals: [NormalizedSleepInterval]?
+    private let isAuthorized: Bool
 
-    public init(customIntervals: [NormalizedSleepInterval]? = nil) {
+    public init(customIntervals: [NormalizedSleepInterval]? = nil, isAuthorized: Bool = true) {
         self.customIntervals = customIntervals
+        self.isAuthorized = isAuthorized
     }
 
     public func requestAuthorization() async throws -> Bool {
-        return true
+        return isAuthorized
     }
 
     public func fetchSleepSamples(start: Date, end: Date) async throws -> [NormalizedSleepInterval] {
