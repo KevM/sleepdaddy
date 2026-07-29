@@ -73,6 +73,51 @@ struct SleepTimelineGeometryTests {
         #expect(layouts.map(\.centerX) == [100, 200, 300])
     }
 
+    @Test func abuttingTimeLabelsAreCulledSoTheyDoNotReadAsOneWord() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: start.addingTimeInterval(3600),
+            viewport: TimelineViewport(
+                start: start,
+                end: start.addingTimeInterval(3600)
+            ),
+            canvasWidth: 400,
+            canvasHeight: 300
+        )
+
+        // Bounds touch exactly at x = 120 without intersecting, which renders as
+        // "11:00 PM1:00 AM" — legible only if a gap is required between labels.
+        let layouts = geometry.timeLabelLayouts(for: [
+            TimelineTimeLabelCandidate(index: 0, tickX: 100, labelWidth: 40),
+            TimelineTimeLabelCandidate(index: 1, tickX: 140, labelWidth: 40)
+        ])
+
+        #expect(layouts.map(\.candidateIndex) == [0])
+    }
+
+    @Test func timeLabelsSeparatedByTheMinimumGapAreBothKept() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: start.addingTimeInterval(3600),
+            viewport: TimelineViewport(
+                start: start,
+                end: start.addingTimeInterval(3600)
+            ),
+            canvasWidth: 400,
+            canvasHeight: 300
+        )
+
+        let gap = TimelineTimeLabelLayout.minimumGap
+        let layouts = geometry.timeLabelLayouts(for: [
+            TimelineTimeLabelCandidate(index: 0, tickX: 100, labelWidth: 40),
+            TimelineTimeLabelCandidate(index: 1, tickX: 140 + gap, labelWidth: 40)
+        ])
+
+        #expect(layouts.map(\.candidateIndex) == [0, 1])
+    }
+
     @Test func timeLabelsWiderThanCanvasAreCulled() {
         let start = Date(timeIntervalSinceReferenceDate: 0)
         let geometry = SleepTimelineGeometry(

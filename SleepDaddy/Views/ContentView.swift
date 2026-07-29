@@ -41,7 +41,7 @@ public struct ContentView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "hand.raised.slash.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(.blue)
+                            .foregroundColor(.accentColor)
                         Text("HealthKit Access Required")
                             .font(.title3)
                             .fontWeight(.bold)
@@ -127,11 +127,15 @@ public struct ContentView: View {
                         CompactSourceFilterButton(
                             availableSources: model.availableSources,
                             selectedSourceIDs: model.preferences.selectedSourceIdentifiers,
+                            hidesBriefAwakes: model.preferences.hidesBriefAwakes,
                             onToggleSource: { sourceID in
                                 model.toggleSourceSelection(sourceID)
                             },
                             onClearFilter: {
                                 model.clearSourceSelection()
+                            },
+                            onToggleHideBriefAwakes: {
+                                model.toggleHideBriefAwakes()
                             }
                         )
                         .accessibilityHint("Filters sleep data by device or application source")
@@ -205,3 +209,38 @@ public struct ContentView: View {
         }
     }
 }
+
+#if DEBUG
+
+/// Backs previews with fixture sleep data and an isolated preferences domain, so a preview
+/// never reads or writes the simulator's real preferences.
+private func previewModel(hidesBriefAwakes: Bool) -> NightBrowserModel {
+    let suiteName = "fm.rodeo.sleepdaddy.previews.\(hidesBriefAwakes)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defaults.removePersistentDomain(forName: suiteName)
+
+    let preferencesStore = PreferencesStore(userDefaults: defaults)
+    var preferences = SleepPreferences.default
+    preferences.hidesBriefAwakes = hidesBriefAwakes
+    preferencesStore.save(preferences)
+
+    return NightBrowserModel(
+        store: FixtureSleepStore(),
+        preferencesStore: preferencesStore
+    )
+}
+
+#Preview("Filter active") {
+    ContentView(model: previewModel(hidesBriefAwakes: true))
+}
+
+#Preview("Filter active (dark)") {
+    ContentView(model: previewModel(hidesBriefAwakes: true))
+        .preferredColorScheme(.dark)
+}
+
+#Preview("No filter") {
+    ContentView(model: previewModel(hidesBriefAwakes: false))
+}
+
+#endif

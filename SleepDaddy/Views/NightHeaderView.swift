@@ -69,7 +69,7 @@ public struct NightHeaderView: View {
             }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(canGoPrevious ? .blue : .gray.opacity(0.4))
+                    .foregroundColor(canGoPrevious ? .accentColor : .gray.opacity(0.4))
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -97,7 +97,7 @@ public struct NightHeaderView: View {
                     Text(durationFormatted)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(night.hasSleepData ? .blue : .secondary)
+                        .foregroundColor(night.hasSleepData ? .accentColor : .secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                 }
@@ -118,7 +118,7 @@ public struct NightHeaderView: View {
             }) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(canGoNext ? .blue : .gray.opacity(0.4))
+                    .foregroundColor(canGoNext ? .accentColor : .gray.opacity(0.4))
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }

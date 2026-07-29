@@ -111,7 +111,10 @@ public final class NightBrowserModel: @unchecked Sendable {
         assembledNights.first { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
-    public func reassembleNights() {
+    /// - Parameter preservingViewport: pass `true` only when the change cannot move a night's
+    ///   bounds — a display-only preference. Source selection, exclusions, and the core window
+    ///   all shift `detectedStart` / `detectedEnd`, so those must re-derive the viewport.
+    public func reassembleNights(preservingViewport: Bool = false) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now())
 
@@ -129,7 +132,9 @@ public final class NightBrowserModel: @unchecked Sendable {
         }
         self.assembledNights = newNights.sorted { $0.date < $1.date }
 
-        resetViewportToSelectedNight()
+        if !preservingViewport {
+            resetViewportToSelectedNight()
+        }
     }
 
     public func resetViewportToSelectedNight() {
@@ -161,6 +166,15 @@ public final class NightBrowserModel: @unchecked Sendable {
         preferences.selectedSourceIdentifiers = []
         preferencesStore.save(preferences)
         reassembleNights()
+    }
+
+    public func toggleHideBriefAwakes() {
+        preferences.hidesBriefAwakes.toggle()
+        preferencesStore.save(preferences)
+        // The selection may name an interval that is no longer in the display lane, which
+        // would leave the inspector open over a segment the canvas can no longer emphasise.
+        selectedInterval = nil
+        reassembleNights(preservingViewport: true)
     }
 
     public func excludeSample(_ interval: NormalizedSleepInterval) {

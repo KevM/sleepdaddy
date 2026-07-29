@@ -184,4 +184,50 @@ struct NightBrowserModelTests {
         model.selectNextNight()
         #expect(model.selectedDate == newest)
     }
+
+    @Test @MainActor func testTogglingBriefAwakeFilterKeepsTheViewport() async {
+        let fixtureStore = FixtureSleepStore()
+        let testDefaults = UserDefaults(suiteName: "NightBrowserModelTestsBriefAwake")!
+        testDefaults.removePersistentDomain(forName: "NightBrowserModelTestsBriefAwake")
+        let prefsStore = PreferencesStore(userDefaults: testDefaults)
+
+        let model = NightBrowserModel(store: fixtureStore, preferencesStore: prefsStore)
+        await model.loadData()
+
+        // Zoom in an hour on each side, then remember where we ended up.
+        model.updateViewport(
+            start: model.viewportStart.addingTimeInterval(3600),
+            end: model.viewportEnd.addingTimeInterval(-3600)
+        )
+        let expectedStart = model.viewportStart
+        let expectedEnd = model.viewportEnd
+        model.selectedInterval = model.selectedAssembledNight?.primaryLaneIntervals.first
+
+        model.toggleHideBriefAwakes()
+
+        #expect(model.preferences.hidesBriefAwakes == true)
+        #expect(model.viewportStart == expectedStart)
+        #expect(model.viewportEnd == expectedEnd)
+        // A selection made before the toggle may name an interval the display lane no longer has.
+        #expect(model.selectedInterval == nil)
+
+        model.toggleHideBriefAwakes()
+
+        #expect(model.preferences.hidesBriefAwakes == false)
+        #expect(model.viewportStart == expectedStart)
+        #expect(model.viewportEnd == expectedEnd)
+    }
+
+    @Test @MainActor func testTogglingBriefAwakeFilterPersists() async {
+        let fixtureStore = FixtureSleepStore()
+        let testDefaults = UserDefaults(suiteName: "NightBrowserModelTestsBriefAwakePersist")!
+        testDefaults.removePersistentDomain(forName: "NightBrowserModelTestsBriefAwakePersist")
+        let prefsStore = PreferencesStore(userDefaults: testDefaults)
+
+        let model = NightBrowserModel(store: fixtureStore, preferencesStore: prefsStore)
+        await model.loadData()
+        model.toggleHideBriefAwakes()
+
+        #expect(prefsStore.load().hidesBriefAwakes == true)
+    }
 }

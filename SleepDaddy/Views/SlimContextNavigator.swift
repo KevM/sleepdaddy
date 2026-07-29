@@ -56,7 +56,7 @@ public struct SlimContextNavigator: View {
 
                         // Core window demarcation track
                         Rectangle()
-                            .fill(Color.blue.opacity(0.15))
+                            .fill(Color.accentColor.opacity(0.15))
                             .frame(width: max(2.0, coreX2 - coreX1), height: trackHeight)
                             .offset(x: coreX1)
 
@@ -67,12 +67,12 @@ public struct SlimContextNavigator: View {
                             path.move(to: CGPoint(x: coreX2, y: 0))
                             path.addLine(to: CGPoint(x: coreX2, y: trackHeight))
                         }
-                        .stroke(Color.blue.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                        .stroke(Color.accentColor.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
 
                         // Visible viewport rectangle indicator
                         RoundedRectangle(cornerRadius: 4)
                             .stroke(Color.primary, lineWidth: 2)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.blue.opacity(0.3)))
+                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.accentColor.opacity(0.3)))
                             .frame(width: vpWidth, height: trackHeight)
                             .offset(x: vpX1)
                     }

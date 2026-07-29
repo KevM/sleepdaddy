@@ -18,6 +18,14 @@ public struct ShareTimelineCardView: View {
         self.sourceFilterDescription = sourceFilterDescription
     }
 
+    private static let legendRows: [[SleepStage]] = stride(
+        from: 0,
+        to: SleepStage.allCases.count,
+        by: 3
+    ).map { start in
+        Array(SleepStage.allCases[start..<min(start + 3, SleepStage.allCases.count)])
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
@@ -26,7 +34,9 @@ public struct ShareTimelineCardView: View {
                     Text("SleepDaddy Timeline")
                         .font(.caption)
                         .fontWeight(.bold)
-                        .foregroundColor(.blue)
+                        // The asset resource rather than `.accentColor`: this card is drawn by
+                        // ImageRenderer for export, which does not inherit the app's ambient tint.
+                        .foregroundColor(.accent)
 
                     Text(AccessibilityHelpers.formattedDateHeader(night.date))
                         .font(.title3)
@@ -64,16 +74,22 @@ public struct ShareTimelineCardView: View {
 
             Divider()
 
-            // Legend
-            HStack(spacing: 12) {
-                ForEach(SleepStage.allCases, id: \.self) { stage in
-                    HStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(stage.themeColor)
-                            .frame(width: 12, height: 12)
-                        Text(stage.displayName)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+            // Legend. Wrapped onto rows of three: at this text size the six stage
+            // names no longer fit across the card's fixed 540pt width.
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(Self.legendRows, id: \.self) { row in
+                    HStack(spacing: 14) {
+                        ForEach(row, id: \.self) { stage in
+                            HStack(spacing: 5) {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(stage.themeColor)
+                                    .frame(width: 16, height: 16)
+                                Text(stage.displayName)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
                     }
                 }
             }

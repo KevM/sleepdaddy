@@ -58,7 +58,7 @@ public struct SleepTimelineCanvas: View {
         GeometryReader { proxy in
             let totalWidth = proxy.size.width
             let totalHeight = proxy.size.height
-            let labelWidth: CGFloat = 54.0
+            let labelWidth: CGFloat = 68.0
             let plotWidth = max(1.0, totalWidth - labelWidth)
 
             let liveViewport = interaction.liveViewport
@@ -79,16 +79,16 @@ public struct SleepTimelineCanvas: View {
                     ForEach(displayedStages, id: \.self) { stage in
                         let yCenter = geom.yCenterPosition(for: stage, displayedStages: displayedStages)
                         let percentage = stagePercentages[stage]
-                        VStack(alignment: .leading, spacing: 1) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(stage.displayName)
-                                .font(.caption2)
+                                .font(.subheadline)
                                 .fontWeight(.bold)
                                 .foregroundColor(stage.themeColor)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                             if let percentage {
                                 Text("\(percentage)%")
-                                    .font(.caption2)
+                                    .font(.footnote)
                                     .fontWeight(.semibold)
                                     .foregroundColor(.secondary)
                                     .monospacedDigit()
@@ -164,14 +164,14 @@ public struct SleepTimelineCanvas: View {
                         }
 
                         // 4. Unspecified sleep spanning bands
-                        for interval in night.primaryLaneIntervals where interval.stage == .asleepUnspecified {
+                        for interval in night.displayLaneIntervals where interval.stage == .asleepUnspecified {
                             let bandRect = cGeom.rect(for: interval, displayedStages: displayedStages)
                             let path = Path(roundedRect: bandRect, cornerRadius: 6)
                             context.fill(path, with: .color(interval.stage.themeColor))
                         }
 
                         // 5. Stepped sleep path
-                        let stepSegments = cGeom.stepSegments(for: night.primaryLaneIntervals, displayedStages: displayedStages)
+                        let stepSegments = cGeom.stepSegments(for: night.displayLaneIntervals, displayedStages: displayedStages)
                         for segment in stepSegments
                         where segment.isConnector || segment.stage != .asleepUnspecified {
                             var segmentPath = Path()
@@ -195,7 +195,7 @@ public struct SleepTimelineCanvas: View {
 
                         // 6. Selected segment emphasis
                         if let selectedID = selectedIntervalID,
-                           let selectedInterval = night.primaryLaneIntervals.first(where: { $0.id == selectedID }) {
+                           let selectedInterval = night.displayLaneIntervals.first(where: { $0.id == selectedID }) {
                             if selectedInterval.stage == .asleepUnspecified {
                                 let selectedRect = cGeom.rect(
                                     for: selectedInterval,
@@ -323,7 +323,7 @@ public struct SleepTimelineCanvas: View {
                                 cancelInteraction(invalidateRecognizers: false)
                             },
                             onTap: { location in
-                                if let tapped = geom.intervalAt(point: location, in: night.primaryLaneIntervals, displayedStages: displayedStages) {
+                                if let tapped = geom.intervalAt(point: location, in: night.displayLaneIntervals, displayedStages: displayedStages) {
                                     onSelectInterval(tapped)
                                 }
                             }
@@ -331,7 +331,7 @@ public struct SleepTimelineCanvas: View {
 
                         // VoiceOver chronological elements
                         VStack(spacing: 0) {
-                            ForEach(night.primaryLaneIntervals) { interval in
+                            ForEach(night.displayLaneIntervals) { interval in
                                 Rectangle()
                                     .fill(Color.clear)
                                     .frame(width: 1, height: 1)

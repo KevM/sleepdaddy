@@ -29,3 +29,6 @@ Thumbs.db
 # Superpowers local state
 .superpowers/
 .agents/
+
+# Claude Code local state (per-machine; .claude/settings.json stays tracked)
+.claude/settings.local.json

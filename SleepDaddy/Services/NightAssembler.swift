@@ -1,6 +1,8 @@
 import Foundation
 
 public struct NightAssembler: Sendable {
+    private let awakeSpikeSmoother = AwakeSpikeSmoother()
+
     public init() {}
 
     public func assembleNight(
@@ -24,6 +26,7 @@ public struct NightAssembler: Sendable {
                 detectedEnd: now,
                 rawIntervals: [],
                 primaryLaneIntervals: [],
+                displayLaneIntervals: [],
                 conflicts: [],
                 summary: .empty,
                 hasSleepData: false
@@ -65,6 +68,7 @@ public struct NightAssembler: Sendable {
                 detectedEnd: coreWindowEnd,
                 rawIntervals: [],
                 primaryLaneIntervals: [],
+                displayLaneIntervals: [],
                 conflicts: [],
                 summary: .empty,
                 hasSleepData: false
@@ -125,6 +129,11 @@ public struct NightAssembler: Sendable {
         // Summary calculation
         let summary = calculateSummary(primaryLane: primaryLane, conflicts: conflicts, detectedStart: detectedStart, detectedEnd: detectedEnd)
 
+        // Runs after the summary so a hidden spike can never reach a reported total.
+        let displayLane = preferences.hidesBriefAwakes
+            ? awakeSpikeSmoother.smooth(lane: primaryLane)
+            : primaryLane
+
         return AssembledNight(
             date: date,
             coreWindowStart: coreWindowStart,
@@ -133,6 +142,7 @@ public struct NightAssembler: Sendable {
             detectedEnd: detectedEnd,
             rawIntervals: assembledRawIntervals,
             primaryLaneIntervals: primaryLane,
+            displayLaneIntervals: displayLane,
             conflicts: conflicts,
             summary: summary,
             hasSleepData: true
