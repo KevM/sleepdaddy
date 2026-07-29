@@ -29,8 +29,12 @@ machine-specific artifacts and avoiding unnecessary git-history rewriting.
 
 - Remove the hard-coded Apple development team identifier from the shared base
   settings in `project.yml`.
-- Continue supplying `DEVELOPMENT_TEAM` through the existing environment-based
-  target setting and release workflow.
+- Store the developer's local `DEVELOPMENT_TEAM` assignment in an untracked
+  `.env.local` file and add `.env.local` to `.gitignore`.
+- Update `generate.sh` to load `.env.local` for local project generation while
+  continuing to accept `DEVELOPMENT_TEAM` from the process environment in CI.
+- Document `.env.local` as the local signing configuration file without
+  publishing its value.
 - Verify that project generation and unsigned simulator builds do not require
   the removed shared default.
 
@@ -45,6 +49,8 @@ machine-specific artifacts and avoiding unnecessary git-history rewriting.
 ## Verification
 
 - Confirm ignored local and credential file patterns remain effective.
+- Confirm `.env.local` supplies the local development team without becoming a
+  tracked file.
 - Scan tracked content and git history again for common secret formats.
 - Generate the Xcode project and run the existing test suite.
 - Review the final diff to ensure unrelated and pre-existing untracked files
