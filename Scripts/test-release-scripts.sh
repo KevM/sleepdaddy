@@ -60,6 +60,7 @@ fi
 
 assert_contains 'INTERNAL_TEST_GROUP = "Alpha"' "$repo_root/fastlane/Fastfile"
 assert_contains 'groups: [INTERNAL_TEST_GROUP]' "$repo_root/fastlane/Fastfile"
+assert_contains 'submit_beta_review: false' "$repo_root/fastlane/Fastfile"
 
 if grep -Fq 'skip_waiting_for_build_processing: true' \
   "$repo_root/fastlane/Fastfile"; then
