@@ -3,6 +3,17 @@ import SwiftUI
 import UIKit
 @testable import SleepDaddy
 
+private final class DelayedEmptySleepStore: HealthKitSleepStoreProtocol, @unchecked Sendable {
+    func requestAuthorization() async throws -> Bool {
+        true
+    }
+
+    func fetchSleepSamples(start: Date, end: Date) async throws -> [NormalizedSleepInterval] {
+        try await Task.sleep(for: .milliseconds(200))
+        return []
+    }
+}
+
 /// Composition tests for the timeline views.
 ///
 /// These deliberately do *not* compare against reference PNGs. Pixel-exact baselines went
@@ -392,7 +403,9 @@ struct SnapshotTests {
         controller.view.frame = window.bounds
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
-        try await Task.sleep(for: .milliseconds(50))
+        for _ in 0..<200 where !isReady() {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         #expect(isReady(), "\(name): Hosted content did not reach its expected state")
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
@@ -425,7 +438,7 @@ struct SnapshotTests {
         let testDefaults = UserDefaults(suiteName: "SnapshotTests.EmptyLoadedNight")!
         testDefaults.removePersistentDomain(forName: "SnapshotTests.EmptyLoadedNight")
         let model = NightBrowserModel(
-            store: FixtureSleepStore(customIntervals: []),
+            store: DelayedEmptySleepStore(),
             preferencesStore: PreferencesStore(userDefaults: testDefaults),
             now: { now }
         )
