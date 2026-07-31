@@ -58,13 +58,11 @@ if grep -q 'DEVELOPMENT_TEAM: 6HQGHHRK87' "$repo_root/project.yml"; then
   exit 1
 fi
 
-assert_contains 'INTERNAL_TEST_GROUP = "Alpha"' "$repo_root/fastlane/Fastfile"
-assert_contains 'groups: [INTERNAL_TEST_GROUP]' "$repo_root/fastlane/Fastfile"
-assert_contains 'submit_beta_review: false' "$repo_root/fastlane/Fastfile"
+assert_contains 'skip_submission: true' "$repo_root/fastlane/Fastfile"
+assert_contains 'skip_waiting_for_build_processing: true' "$repo_root/fastlane/Fastfile"
 
-if grep -Fq 'skip_waiting_for_build_processing: true' \
-  "$repo_root/fastlane/Fastfile"; then
-  echo "Fastlane beta lane skips processing required for group assignment" >&2
+if grep -Fq 'groups:' "$repo_root/fastlane/Fastfile"; then
+  echo "Fastlane beta lane attempts unsupported internal group assignment" >&2
   exit 1
 fi
 
