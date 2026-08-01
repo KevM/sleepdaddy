@@ -501,6 +501,12 @@ struct SnapshotTests {
             .environment(\.accessibilityReduceMotionOverride, true)
         assertComposition(of: composite, named: "reduce motion", width: 393, height: 520)
     }
+
+    @Test func compactHeightSelectsImmersiveLandscapeLayout() {
+        #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: .compact) == .immersiveLandscape)
+        #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: .regular) == .standard)
+        #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: nil) == .standard)
+    }
 }
 
 private struct NightDetailCompositeView: View {

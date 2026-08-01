@@ -1,5 +1,14 @@
 import SwiftUI
 
+enum SelectedNightLayoutMode: Equatable {
+    case standard
+    case immersiveLandscape
+
+    static func resolve(verticalSizeClass: UserInterfaceSizeClass?) -> SelectedNightLayoutMode {
+        verticalSizeClass == .compact ? .immersiveLandscape : .standard
+    }
+}
+
 public struct ContentView: View {
     @State private var model: NightBrowserModel
 
