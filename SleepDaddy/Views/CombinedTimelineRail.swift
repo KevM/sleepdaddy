@@ -255,7 +255,7 @@ struct CombinedTimelineRail: View {
                 guard let railInteraction = layout.interaction(
                     startingAt: value.startLocation,
                     translationWidth: value.translation.width,
-                    isEnabled: isInteractive
+                    isEnabled: respondsToInteraction
                 ) else { return }
 
                 let update = layout.updatedViewport(
