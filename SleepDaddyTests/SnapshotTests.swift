@@ -452,6 +452,18 @@ struct SnapshotTests {
         #expect(cgImage.height == Int(height * 2.0), "\(name) height")
     }
 
+    @MainActor
+    private func makeLoadedFixtureModel(suiteName: String) async -> NightBrowserModel {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(),
+            preferencesStore: PreferencesStore(userDefaults: defaults)
+        )
+        await model.loadData()
+        return model
+    }
+
     @Test @MainActor func testSnapshotEmptyLoadedNight() async throws {
         var fixtureCalendar = Calendar(identifier: .gregorian)
         fixtureCalendar.timeZone = .current
@@ -484,6 +496,39 @@ struct SnapshotTests {
             named: "empty loaded night",
             width: 393,
             height: 520,
+            isReady: { model.appState == .loaded }
+        )
+    }
+
+    @Test @MainActor func loadedLandscapeKeepsImmersiveTimeline() async throws {
+        let model = await makeLoadedFixtureModel(suiteName: "SnapshotTests.LoadedLandscape")
+        let content = ContentView(model: model)
+            .environment(\.verticalSizeClass, .compact)
+            .environment(\.locale, Locale(identifier: "en_US"))
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+
+        try await assertHostedComposition(
+            of: content,
+            named: "loaded landscape",
+            width: 852,
+            height: 393,
+            isReady: { model.appState == .loaded }
+        )
+    }
+
+    @Test @MainActor func loadedLandscapeAccessibilityKeepsImmersiveTimeline() async throws {
+        let model = await makeLoadedFixtureModel(suiteName: "SnapshotTests.LoadedLandscapeAccessibility")
+        let content = ContentView(model: model)
+            .environment(\.verticalSizeClass, .compact)
+            .environment(\.dynamicTypeSize, .accessibility2)
+            .environment(\.locale, Locale(identifier: "en_US"))
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+
+        try await assertHostedComposition(
+            of: content,
+            named: "loaded landscape accessibility",
+            width: 852,
+            height: 393,
             isReady: { model.appState == .loaded }
         )
     }
