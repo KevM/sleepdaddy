@@ -128,6 +128,14 @@ struct CombinedTimelineRail: View {
         self.onUpdateViewport = onUpdateViewport
     }
 
+    /// A rail that draws no navigator has nothing to drag, so it neither takes the gesture
+    /// nor advertises an adjustable action. Without this the export rail is inert only
+    /// because `ShareTimelineCardView` happens to clear `timelineInteractionEnabled` —
+    /// construct one directly, as the snapshot test does, and it scrubs a phantom navigator.
+    private var respondsToInteraction: Bool {
+        isInteractive && chrome.showsNavigator
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let geometry = SleepTimelineGeometry(
@@ -135,7 +143,8 @@ struct CombinedTimelineRail: View {
                 totalEnd: night.timelineEnd,
                 viewport: viewport,
                 canvasWidth: proxy.size.width,
-                canvasHeight: proxy.size.height
+                canvasHeight: proxy.size.height,
+                chrome: chrome
             )
             let layout = CombinedTimelineRailLayout(
                 width: proxy.size.width,
@@ -159,14 +168,14 @@ struct CombinedTimelineRail: View {
             }
             .contentShape(Rectangle())
             .gesture(railGesture(geometry: geometry, layout: layout))
-            .allowsHitTesting(isInteractive)
+            .allowsHitTesting(respondsToInteraction)
         }
         .frame(height: chrome.axisHeight)
         .modifier(
             CombinedTimelineRailAccessibilityModifier(
                 label: "Timeline navigator from \(formatted(night.timelineStart)) to \(formatted(night.timelineEnd))",
                 presentation: CombinedTimelineRailAccessibilityPresentation(
-                    isInteractive: isInteractive
+                    isInteractive: respondsToInteraction
                 ),
                 onAdjust: adjustViewport
             )

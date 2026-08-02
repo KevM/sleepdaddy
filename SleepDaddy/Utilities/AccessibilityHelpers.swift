@@ -23,7 +23,8 @@ public struct AccessibilityHelpers {
     public static func formattedDateHeader(
         _ date: Date,
         calendar: Calendar = .current,
-        locale: Locale = .current
+        locale: Locale = .current,
+        timeZone: TimeZone = .current
     ) -> String {
         var style = Date.FormatStyle.dateTime
             .weekday(.abbreviated)
@@ -31,7 +32,10 @@ public struct AccessibilityHelpers {
             .day()
             .year()
             .locale(locale)
-        style.timeZone = calendar.timeZone
+        // Both, and separately: reading the time zone off `calendar` ignored the rest of it,
+        // so a Japanese environment calendar still printed Gregorian years.
+        style.calendar = calendar
+        style.timeZone = timeZone
         return date.formatted(style)
     }
 
@@ -57,6 +61,12 @@ public struct AccessibilityHelpers {
     /// Deliberately not `DateIntervalFormatter`: that type ignores `dateStyle = .none` and
     /// prints both calendar dates once a range crosses midnight, which every night's sleep
     /// does.
+    ///
+    /// The cost of dropping it is real and was traded away knowingly, not overlooked: the
+    /// separator here is a hardcoded spaced en dash, where `DateIntervalFormatter` used the
+    /// locale's own range pattern and handled right-to-left scripts. Restoring that means
+    /// composing the two clock times through a locale range pattern, not reinstating the
+    /// formatter.
     public static func formattedTimeRange(
         start: Date,
         end: Date,

@@ -2,10 +2,12 @@ import Foundation
 import Testing
 @testable import SleepDaddy
 
-struct ShareCardContentTests {
-    private static let utc = TimeZone(secondsFromGMT: 0)!
+/// Nights built from a bare list of stages, so a test can say exactly which stages are
+/// present without caring what a realistic night looks like.
+enum ShareCardFixtures {
+    static let utc = TimeZone(secondsFromGMT: 0)!
 
-    private static func date(
+    static func date(
         year: Int, month: Int, day: Int, hour: Int, minute: Int
     ) -> Date {
         var calendar = Calendar(identifier: .gregorian)
@@ -15,6 +17,49 @@ struct ShareCardContentTests {
                 year: year, month: month, day: day, hour: hour, minute: minute
             )
         )!
+    }
+
+    static func night(with stages: [SleepStage]) -> AssembledNight {
+        let base = date(year: 2026, month: 7, day: 31, hour: 22, minute: 0)
+        var intervals: [NormalizedSleepInterval] = []
+        for (offset, stage) in stages.enumerated() {
+            intervals.append(
+                NormalizedSleepInterval(
+                    id: "\(stage.rawValue)-\(offset)",
+                    startDate: base.addingTimeInterval(Double(offset) * 3600),
+                    endDate: base.addingTimeInterval(Double(offset + 1) * 3600),
+                    stage: stage,
+                    sourceName: "Apple Watch",
+                    sourceIdentifier: "com.apple.health"
+                )
+            )
+        }
+
+        return AssembledNight(
+            date: base,
+            coreWindowStart: base,
+            coreWindowEnd: base.addingTimeInterval(8 * 3600),
+            detectedStart: base,
+            detectedEnd: base.addingTimeInterval(8 * 3600),
+            rawIntervals: intervals,
+            primaryLaneIntervals: intervals.filter { $0.stage != .inBed },
+            displayLaneIntervals: intervals.filter { $0.stage != .inBed },
+            conflicts: [],
+            summary: .empty,
+            hasSleepData: true
+        )
+    }
+}
+
+struct ShareCardContentTests {
+    private static let utc = ShareCardFixtures.utc
+
+    private static func date(
+        year: Int, month: Int, day: Int, hour: Int, minute: Int
+    ) -> Date {
+        ShareCardFixtures.date(
+            year: year, month: month, day: day, hour: hour, minute: minute
+        )
     }
 
     /// Collapses the narrow no-break space (U+202F) ICU puts before AM/PM into a plain space.
@@ -63,7 +108,10 @@ struct ShareCardContentTests {
         let night = Self.date(year: 2026, month: 7, day: 31, hour: 22, minute: 45)
 
         let header = AccessibilityHelpers.formattedDateHeader(
-            night, calendar: calendar, locale: Locale(identifier: "en_US")
+            night,
+            calendar: calendar,
+            locale: Locale(identifier: "en_US"),
+            timeZone: Self.utc
         )
 
         #expect(header == "Fri, Jul 31, 2026")
@@ -75,43 +123,17 @@ struct ShareCardContentTests {
         let night = Self.date(year: 2025, month: 7, day: 31, hour: 22, minute: 45)
 
         let header = AccessibilityHelpers.formattedDateHeader(
-            night, calendar: calendar, locale: Locale(identifier: "en_US")
+            night,
+            calendar: calendar,
+            locale: Locale(identifier: "en_US"),
+            timeZone: Self.utc
         )
 
         #expect(header == "Thu, Jul 31, 2025")
     }
 
-    private static func night(
-        with stages: [SleepStage]
-    ) -> AssembledNight {
-        let base = Self.date(year: 2026, month: 7, day: 31, hour: 22, minute: 0)
-        var intervals: [NormalizedSleepInterval] = []
-        for (offset, stage) in stages.enumerated() {
-            intervals.append(
-                NormalizedSleepInterval(
-                    id: "\(stage.rawValue)-\(offset)",
-                    startDate: base.addingTimeInterval(Double(offset) * 3600),
-                    endDate: base.addingTimeInterval(Double(offset + 1) * 3600),
-                    stage: stage,
-                    sourceName: "Apple Watch",
-                    sourceIdentifier: "com.apple.health"
-                )
-            )
-        }
-
-        return AssembledNight(
-            date: base,
-            coreWindowStart: base,
-            coreWindowEnd: base.addingTimeInterval(8 * 3600),
-            detectedStart: base,
-            detectedEnd: base.addingTimeInterval(8 * 3600),
-            rawIntervals: intervals,
-            primaryLaneIntervals: intervals.filter { $0.stage != .inBed },
-            displayLaneIntervals: intervals.filter { $0.stage != .inBed },
-            conflicts: [],
-            summary: .empty,
-            hasSleepData: true
-        )
+    private static func night(with stages: [SleepStage]) -> AssembledNight {
+        ShareCardFixtures.night(with: stages)
     }
 
     @Test func legendIsEmptyWhenTheAxisAlreadyLabelsEveryStage() {

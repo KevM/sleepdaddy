@@ -2,6 +2,10 @@ import SwiftUI
 
 public struct ShareTimelineCardView: View {
     let night: AssembledNight
+    /// The span the card draws *and* names, and it has to be the whole night: the headline
+    /// is `summary.totalSleepDuration`, which is always the night's total. Handing this the
+    /// live pan/zoom window instead puts "7h 12m asleep" above a two-hour range and a
+    /// two-hour plot, with nothing on the card to explain the contradiction.
     let viewportStart: Date
     let viewportEnd: Date
     /// `nil` when the user has not filtered sources, which is the common case. The card then
@@ -51,14 +55,6 @@ public struct ShareTimelineCardView: View {
         }
     }
 
-    /// The environment calendar carries its own time zone, which need not be the environment's.
-    /// The header dates the night in whichever zone the timeline's labels are drawn in.
-    private var headerCalendar: Calendar {
-        var calendar = self.calendar
-        calendar.timeZone = timeZone
-        return calendar
-    }
-
     public var body: some View {
         let legend = Self.legendStages(for: night)
 
@@ -80,8 +76,9 @@ public struct ShareTimelineCardView: View {
                 Text(
                     AccessibilityHelpers.formattedDateHeader(
                         night.date,
-                        calendar: headerCalendar,
-                        locale: locale
+                        calendar: calendar,
+                        locale: locale,
+                        timeZone: timeZone
                     )
                     + " · "
                     + AccessibilityHelpers.formattedTimeRange(
@@ -163,8 +160,8 @@ private func previewNight() -> AssembledNight {
     let night = previewNight()
     return ShareTimelineCardView(
         night: night,
-        viewportStart: night.preferredViewportStart,
-        viewportEnd: night.preferredViewportEnd,
+        viewportStart: night.detectedStart,
+        viewportEnd: night.detectedEnd,
         sourceFilterDescription: nil
     )
 }
@@ -173,8 +170,8 @@ private func previewNight() -> AssembledNight {
     let night = previewNight()
     return ShareTimelineCardView(
         night: night,
-        viewportStart: night.preferredViewportStart,
-        viewportEnd: night.preferredViewportEnd,
+        viewportStart: night.detectedStart,
+        viewportEnd: night.detectedEnd,
         sourceFilterDescription: "Apple Watch"
     )
 }
@@ -183,8 +180,8 @@ private func previewNight() -> AssembledNight {
     let night = previewNight()
     return ShareTimelineCardView(
         night: night,
-        viewportStart: night.preferredViewportStart,
-        viewportEnd: night.preferredViewportEnd,
+        viewportStart: night.detectedStart,
+        viewportEnd: night.detectedEnd,
         sourceFilterDescription: nil
     )
     .preferredColorScheme(.dark)
@@ -196,8 +193,8 @@ private func previewNight() -> AssembledNight {
     let night = previewNight()
     return ShareTimelineCardView(
         night: night,
-        viewportStart: night.preferredViewportStart,
-        viewportEnd: night.preferredViewportEnd,
+        viewportStart: night.detectedStart,
+        viewportEnd: night.detectedEnd,
         sourceFilterDescription: nil
     )
     .environment(\.locale, Locale(identifier: "de_DE"))
