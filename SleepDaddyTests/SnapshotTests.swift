@@ -141,6 +141,29 @@ struct SnapshotTests {
         )
     }
 
+    @Test @MainActor func timelineOverlayHeaderRendersAtAccessibilitySize() {
+        let night = makeFixtureNight()
+        let header = NightHeaderView(
+            night: night,
+            canGoPrevious: true,
+            canGoNext: true,
+            presentation: .timelineOverlay,
+            onPrevious: {},
+            onNext: {},
+            onSelectDate: { _ in }
+        )
+        .frame(width: 520, height: 82)
+        .environment(\.dynamicTypeSize, .accessibility2)
+        .environment(\.locale, Locale(identifier: "en_US"))
+        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+
+        renderComposition(
+            of: header,
+            named: "timeline overlay header accessibility",
+            expecting: CGSize(width: 520, height: 82)
+        )
+    }
+
     @Test @MainActor func testSleepTimelineCanvasSnapshotComposition() {
         let calendar = Calendar.current
         var components = DateComponents()

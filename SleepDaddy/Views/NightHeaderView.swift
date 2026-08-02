@@ -1,10 +1,16 @@
 import SwiftUI
 
 public struct NightHeaderView: View {
+    public enum Presentation: Sendable {
+        case standalone
+        case timelineOverlay
+    }
+
     let night: AssembledNight
     let canGoPrevious: Bool
     let canGoNext: Bool
     let dateRange: ClosedRange<Date>?
+    let presentation: Presentation
     let onPrevious: () -> Void
     let onNext: () -> Void
     let onSelectDate: (Date) -> Void
@@ -19,6 +25,7 @@ public struct NightHeaderView: View {
         canGoPrevious: Bool,
         canGoNext: Bool,
         dateRange: ClosedRange<Date>? = nil,
+        presentation: Presentation = .standalone,
         onPrevious: @escaping () -> Void,
         onNext: @escaping () -> Void,
         onSelectDate: @escaping (Date) -> Void
@@ -27,6 +34,7 @@ public struct NightHeaderView: View {
         self.canGoPrevious = canGoPrevious
         self.canGoNext = canGoNext
         self.dateRange = dateRange
+        self.presentation = presentation
         self.onPrevious = onPrevious
         self.onNext = onNext
         self.onSelectDate = onSelectDate
@@ -76,7 +84,8 @@ public struct NightHeaderView: View {
         }
     }
 
-    public var body: some View {
+    @ViewBuilder
+    private var headerContent: some View {
         HStack(spacing: 8) {
             Button(action: {
                 if canGoPrevious {
@@ -143,9 +152,24 @@ public struct NightHeaderView: View {
             .accessibilityLabel("Next night")
             .accessibilityHint("Switches to the next night")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(UIColor.systemBackground))
+    }
+
+    public var body: some View {
+        Group {
+            switch presentation {
+            case .standalone:
+                headerContent
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(UIColor.systemBackground))
+            case .timelineOverlay:
+                headerContent
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
+            }
+        }
         .gesture(
             DragGesture(minimumDistance: 24)
                 .onChanged { value in
