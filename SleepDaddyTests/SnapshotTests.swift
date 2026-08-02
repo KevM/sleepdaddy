@@ -379,6 +379,28 @@ struct SnapshotTests {
         )
     }
 
+    @Test @MainActor func combinedTimelineRailUnderExportChromeDropsTheNavigator() {
+        let night = makeFixtureNight()
+        let rail = CombinedTimelineRail(
+            night: night,
+            viewport: TimelineViewport(
+                normalizing: night.detectedStart,
+                end: night.detectedEnd
+            ),
+            chrome: .export,
+            onUpdateViewport: { _ in }
+        )
+        .frame(width: 700, height: TimelineChrome.export.axisHeight)
+        .environment(\.locale, Locale(identifier: "en_US"))
+        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+
+        renderComposition(
+            of: rail,
+            named: "combined timeline rail (export)",
+            expecting: CGSize(width: 700, height: 20)
+        )
+    }
+
     private func makeFixtureNight() -> AssembledNight {
         let calendar = Calendar.current
         var components = DateComponents()

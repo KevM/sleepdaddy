@@ -22,9 +22,15 @@ struct CombinedTimelineRailAccessibilityPresentation: Equatable, Sendable {
 
 struct CombinedTimelineRailLayout: Equatable, Sendable {
     let width: CGFloat
+    let height: CGFloat
+
+    init(width: CGFloat, height: CGFloat = SleepTimelineGeometry.timeAxisHeight) {
+        self.width = width
+        self.height = height
+    }
 
     private var railBounds: CGRect {
-        CGRect(x: 0, y: 0, width: width, height: SleepTimelineGeometry.timeAxisHeight)
+        CGRect(x: 0, y: 0, width: width, height: height)
     }
 
     func interaction(
@@ -100,6 +106,7 @@ struct CombinedTimelineRail: View {
     let night: AssembledNight
     let viewport: TimelineViewport
     let isInteractive: Bool
+    let chrome: TimelineChrome
     let onUpdateViewport: (TimelineViewport) -> Void
 
     @State private var baselineViewport: TimelineViewport?
@@ -111,11 +118,13 @@ struct CombinedTimelineRail: View {
         night: AssembledNight,
         viewport: TimelineViewport,
         isInteractive: Bool = true,
+        chrome: TimelineChrome = .interactive,
         onUpdateViewport: @escaping (TimelineViewport) -> Void
     ) {
         self.night = night
         self.viewport = viewport
         self.isInteractive = isInteractive
+        self.chrome = chrome
         self.onUpdateViewport = onUpdateViewport
     }
 
@@ -128,22 +137,31 @@ struct CombinedTimelineRail: View {
                 canvasWidth: proxy.size.width,
                 canvasHeight: proxy.size.height
             )
-            let layout = CombinedTimelineRailLayout(width: proxy.size.width)
+            let layout = CombinedTimelineRailLayout(
+                width: proxy.size.width,
+                height: chrome.axisHeight
+            )
 
             VStack(spacing: 0) {
                 visibleTimeLabels(geometry: geometry)
-                    .frame(height: SleepTimelineGeometry.timeLabelBandHeight)
+                    .frame(
+                        height: chrome.showsNavigator
+                            ? SleepTimelineGeometry.timeLabelBandHeight
+                            : chrome.axisHeight
+                    )
                     .clipped()
                     .dynamicTypeSize(...DynamicTypeSize.large)
 
-                navigator(geometry: geometry, layout: layout)
-                    .frame(maxHeight: .infinity)
+                if chrome.showsNavigator {
+                    navigator(geometry: geometry, layout: layout)
+                        .frame(maxHeight: .infinity)
+                }
             }
             .contentShape(Rectangle())
             .gesture(railGesture(geometry: geometry, layout: layout))
             .allowsHitTesting(isInteractive)
         }
-        .frame(height: SleepTimelineGeometry.timeAxisHeight)
+        .frame(height: chrome.axisHeight)
         .modifier(
             CombinedTimelineRailAccessibilityModifier(
                 label: "Timeline navigator from \(formatted(night.timelineStart)) to \(formatted(night.timelineEnd))",
