@@ -17,8 +17,8 @@ struct SleepTimelineCanvasVerticalLayout: Equatable, Sendable {
     /// both the top padding and the combined rail; the rendered plot frame excludes the rail.
     let geometryHeight: CGFloat
 
-    init(totalHeight: CGFloat) {
-        plotHeight = max(1.0, totalHeight - SleepTimelineGeometry.timeAxisHeight)
+    init(totalHeight: CGFloat, chrome: TimelineChrome = .interactive) {
+        plotHeight = max(1.0, totalHeight - chrome.axisHeight)
         geometryHeight = totalHeight
     }
 }

@@ -1,12 +1,55 @@
 import Foundation
 import CoreGraphics
 
+/// Selects between the on-screen timeline and the flattened variant drawn for image export.
+///
+/// Passed as a value rather than read from the environment because `SleepTimelineGeometry`
+/// is a plain `Sendable` struct, not a `View` — the layout math is exactly what has to vary,
+/// and a value keeps it constructible in tests without rendering anything.
+public struct TimelineChrome: Equatable, Sendable {
+    public let topPadding: CGFloat
+    public let axisHeight: CGFloat
+    public let showsNavigator: Bool
+    public let showsCardSurface: Bool
+
+    public init(
+        topPadding: CGFloat,
+        axisHeight: CGFloat,
+        showsNavigator: Bool,
+        showsCardSurface: Bool
+    ) {
+        self.topPadding = topPadding
+        self.axisHeight = axisHeight
+        self.showsNavigator = showsNavigator
+        self.showsCardSurface = showsCardSurface
+    }
+
+    public static let interactive = TimelineChrome(
+        topPadding: SleepTimelineGeometry.topPadding,
+        axisHeight: SleepTimelineGeometry.timeAxisHeight,
+        showsNavigator: true,
+        showsCardSurface: true
+    )
+
+    /// Export drops the scrubber — there is nothing to drag in a PNG — and the card surface,
+    /// because the share card draws its own and two nested cards read as a mistake. The rail
+    /// shrinks to just its time-label band, and `topPadding` keeps only enough room for the
+    /// top edge of the In-Bed band.
+    public static let export = TimelineChrome(
+        topPadding: 4,
+        axisHeight: SleepTimelineGeometry.timeLabelBandHeight,
+        showsNavigator: false,
+        showsCardSurface: false
+    )
+}
+
 public struct SleepTimelineGeometry: Sendable {
     public let totalStart: Date
     public let totalEnd: Date
     public let viewport: TimelineViewport
     public let canvasWidth: CGFloat
     public let canvasHeight: CGFloat
+    public let chrome: TimelineChrome
 
     public static let rowHeight: CGFloat = 36.0
     public static let rowSpacing: CGFloat = 8.0
@@ -34,13 +77,15 @@ public struct SleepTimelineGeometry: Sendable {
         totalEnd: Date,
         viewport: TimelineViewport,
         canvasWidth: CGFloat,
-        canvasHeight: CGFloat
+        canvasHeight: CGFloat,
+        chrome: TimelineChrome = .interactive
     ) {
         self.totalStart = totalStart
         self.totalEnd = totalEnd
         self.viewport = viewport
         self.canvasWidth = canvasWidth
         self.canvasHeight = canvasHeight
+        self.chrome = chrome
     }
 
     /// Returns a copy of this geometry showing a different window of the same night.
@@ -50,7 +95,8 @@ public struct SleepTimelineGeometry: Sendable {
             totalEnd: totalEnd,
             viewport: viewport,
             canvasWidth: canvasWidth,
-            canvasHeight: canvasHeight
+            canvasHeight: canvasHeight,
+            chrome: chrome
         )
     }
 
@@ -122,7 +168,7 @@ public struct SleepTimelineGeometry: Sendable {
     public static let defaultDisplayedStages: [SleepStage] = [.awake, .rem, .core, .deep]
 
     public func usablePlotHeight() -> CGFloat {
-        max(1.0, canvasHeight - Self.topPadding - Self.timeAxisHeight)
+        max(1.0, canvasHeight - chrome.topPadding - chrome.axisHeight)
     }
 
     public func laneHeight(displayedStagesCount count: Int) -> CGFloat {
@@ -142,10 +188,10 @@ public struct SleepTimelineGeometry: Sendable {
         }
 
         guard let index = displayedStages.firstIndex(of: stage) else {
-            return Self.topPadding
+            return chrome.topPadding
         }
         let lHeight = laneHeight(displayedStagesCount: displayedStages.count)
-        return Self.topPadding + (CGFloat(index) + 0.5) * lHeight
+        return chrome.topPadding + (CGFloat(index) + 0.5) * lHeight
     }
 
     public func rowHeight(displayedStagesCount count: Int = defaultDisplayedStages.count) -> CGFloat {
