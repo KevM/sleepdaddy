@@ -11,6 +11,18 @@ extension EnvironmentValues {
     }
 }
 
+struct SleepTimelineCanvasVerticalLayout: Equatable, Sendable {
+    let plotHeight: CGFloat
+    /// Geometry receives the full canvas height because its vertical calculations subtract
+    /// both the top padding and the combined rail; the rendered plot frame excludes the rail.
+    let geometryHeight: CGFloat
+
+    init(totalHeight: CGFloat) {
+        plotHeight = max(1.0, totalHeight - SleepTimelineGeometry.timeAxisHeight)
+        geometryHeight = totalHeight
+    }
+}
+
 public struct SleepTimelineCanvas: View {
     let night: AssembledNight
     let viewportStart: Date
@@ -19,13 +31,13 @@ public struct SleepTimelineCanvas: View {
     let isInteractive: Bool
     let onSelectInterval: (NormalizedSleepInterval) -> Void
     let onUpdateViewport: (Date, Date) -> Void
-    let onUpdateLiveViewport: (TimelineViewport?) -> Void
 
     @State private var interaction: TimelineInteractionController
     @State private var gestureResetGeneration = 0
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceMotionOverride) private var overrideReduceMotion
     @Environment(\.timelineInteractionEnabled) private var timelineInteractionEnabled
+    @Environment(\.calendar) private var calendar
 
     private var reduceMotion: Bool {
         overrideReduceMotion ?? systemReduceMotion
@@ -38,8 +50,7 @@ public struct SleepTimelineCanvas: View {
         selectedIntervalID: String?,
         isInteractive: Bool = true,
         onSelectInterval: @escaping (NormalizedSleepInterval) -> Void = { _ in },
-        onUpdateViewport: @escaping (Date, Date) -> Void = { _, _ in },
-        onUpdateLiveViewport: @escaping (TimelineViewport?) -> Void = { _ in }
+        onUpdateViewport: @escaping (Date, Date) -> Void = { _, _ in }
     ) {
         self.night = night
         self.viewportStart = viewportStart
@@ -48,7 +59,6 @@ public struct SleepTimelineCanvas: View {
         self.isInteractive = isInteractive
         self.onSelectInterval = onSelectInterval
         self.onUpdateViewport = onUpdateViewport
-        self.onUpdateLiveViewport = onUpdateLiveViewport
 
         let initialViewport = TimelineViewport(normalizing: viewportStart, end: viewportEnd)
         _interaction = State(initialValue: TimelineInteractionController(viewport: initialViewport))
@@ -60,6 +70,7 @@ public struct SleepTimelineCanvas: View {
             let totalHeight = proxy.size.height
             let labelWidth: CGFloat = 68.0
             let plotWidth = max(1.0, totalWidth - labelWidth)
+            let verticalLayout = SleepTimelineCanvasVerticalLayout(totalHeight: totalHeight)
 
             let liveViewport = interaction.liveViewport
             let geom = SleepTimelineGeometry(
@@ -67,7 +78,7 @@ public struct SleepTimelineCanvas: View {
                 totalEnd: night.timelineEnd,
                 viewport: liveViewport,
                 canvasWidth: plotWidth,
-                canvasHeight: totalHeight
+                canvasHeight: verticalLayout.geometryHeight
             )
 
             let displayedStages = SleepTimelineGeometry.defaultDisplayedStages
@@ -108,244 +119,221 @@ public struct SleepTimelineCanvas: View {
                 .frame(width: labelWidth, height: totalHeight, alignment: .topLeading)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility1)
 
-                // Plot region
-                ZStack(alignment: .topLeading) {
-                    Canvas { context, canvasSize in
-                        let cGeom = SleepTimelineGeometry(
-                            totalStart: night.timelineStart,
-                            totalEnd: night.timelineEnd,
-                            viewport: liveViewport,
-                            canvasWidth: canvasSize.width,
-                            canvasHeight: canvasSize.height
-                        )
+                // Plot region and combined time/context rail
+                VStack(spacing: 0) {
+                    ZStack(alignment: .topLeading) {
+                        Canvas { context, canvasSize in
+                            let cGeom = SleepTimelineGeometry(
+                                totalStart: night.timelineStart,
+                                totalEnd: night.timelineEnd,
+                                viewport: liveViewport,
+                                canvasWidth: canvasSize.width,
+                                canvasHeight: verticalLayout.geometryHeight
+                            )
 
-                        // 1. Guideline rows
-                        for stage in displayedStages {
-                            let y = cGeom.yCenterPosition(for: stage, displayedStages: displayedStages)
-                            var linePath = Path()
-                            linePath.move(to: CGPoint(x: 0, y: y))
-                            linePath.addLine(to: CGPoint(x: canvasSize.width, y: y))
-                            context.stroke(linePath, with: .color(Color.gray.opacity(0.12)), lineWidth: 1)
-                        }
+                            // 1. Guideline rows
+                            for stage in displayedStages {
+                                let y = cGeom.yCenterPosition(for: stage, displayedStages: displayedStages)
+                                var linePath = Path()
+                                linePath.move(to: CGPoint(x: 0, y: y))
+                                linePath.addLine(to: CGPoint(x: canvasSize.width, y: y))
+                                context.stroke(linePath, with: .color(Color.gray.opacity(0.12)), lineWidth: 1)
+                            }
 
-                        // 2. In Bed background band
-                        let inBedIntervals = night.rawIntervals.filter { $0.stage == .inBed }
-                        if !inBedIntervals.isEmpty {
-                            let bandY = SleepTimelineGeometry.topPadding
-                            let lastStage = displayedStages.last ?? .deep
-                            let lastYCenter = cGeom.yCenterPosition(for: lastStage, displayedStages: displayedStages)
-                            let rHeight = cGeom.rowHeight(displayedStagesCount: displayedStages.count)
-                            let bandHeight = max(1.0, (lastYCenter + rHeight / 2.0) - bandY + 4)
+                            // 2. In Bed background band
+                            let inBedIntervals = night.rawIntervals.filter { $0.stage == .inBed }
+                            if !inBedIntervals.isEmpty {
+                                let bandY = SleepTimelineGeometry.topPadding
+                                let lastStage = displayedStages.last ?? .deep
+                                let lastYCenter = cGeom.yCenterPosition(for: lastStage, displayedStages: displayedStages)
+                                let rHeight = cGeom.rowHeight(displayedStagesCount: displayedStages.count)
+                                let bandHeight = max(1.0, (lastYCenter + rHeight / 2.0) - bandY + 4)
 
-                            for inBed in inBedIntervals {
-                                let x1 = cGeom.xPosition(for: inBed.startDate)
-                                let x2 = cGeom.xPosition(for: inBed.endDate)
-                                let width = max(2.0, x2 - x1)
-                                let bandRect = CGRect(x: x1, y: bandY, width: width, height: bandHeight)
-                                let path = Path(roundedRect: bandRect, cornerRadius: 4)
-                                context.fill(path, with: .color(SleepStage.inBed.themeColor.opacity(0.12)))
+                                for inBed in inBedIntervals {
+                                    let x1 = cGeom.xPosition(for: inBed.startDate)
+                                    let x2 = cGeom.xPosition(for: inBed.endDate)
+                                    let width = max(2.0, x2 - x1)
+                                    let bandRect = CGRect(x: x1, y: bandY, width: width, height: bandHeight)
+                                    let path = Path(roundedRect: bandRect, cornerRadius: 4)
+                                    context.fill(path, with: .color(SleepStage.inBed.themeColor.opacity(0.12)))
+                                }
+                            }
+
+                            // 3. Conflict ranges & markers
+                            for conflict in night.conflicts {
+                                let x1 = cGeom.xPosition(for: conflict.startDate)
+                                let x2 = cGeom.xPosition(for: conflict.endDate)
+                                let width = max(4.0, x2 - x1)
+                                let conflictRect = CGRect(x: x1, y: 0, width: width, height: canvasSize.height)
+
+                                let path = Path(roundedRect: conflictRect, cornerRadius: 2)
+                                context.fill(path, with: .color(Color.yellow.opacity(0.20)))
+                                context.stroke(path, with: .color(Color.orange.opacity(0.6)), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+                                let markerPoint = CGPoint(x: x1 + width / 2.0, y: 6)
+                                let circlePath = Path(ellipseIn: CGRect(x: markerPoint.x - 3, y: markerPoint.y - 3, width: 6, height: 6))
+                                context.fill(circlePath, with: .color(Color.orange))
+                            }
+
+                            // 4. Unspecified sleep spanning bands
+                            for interval in night.displayLaneIntervals where interval.stage == .asleepUnspecified {
+                                let bandRect = cGeom.rect(for: interval, displayedStages: displayedStages)
+                                let path = Path(roundedRect: bandRect, cornerRadius: 6)
+                                context.fill(path, with: .color(interval.stage.themeColor))
+                            }
+
+                            // 5. Stepped sleep path
+                            let stepSegments = cGeom.stepSegments(for: night.displayLaneIntervals, displayedStages: displayedStages)
+                            for segment in stepSegments
+                            where segment.isConnector || segment.stage != .asleepUnspecified {
+                                var segmentPath = Path()
+                                segmentPath.move(to: segment.start)
+                                segmentPath.addLine(to: segment.end)
+
+                                if segment.isConnector {
+                                    context.stroke(
+                                        segmentPath,
+                                        with: .color(segment.stage.themeColor.opacity(0.55)),
+                                        style: StrokeStyle(lineWidth: 2, lineCap: .butt)
+                                    )
+                                } else {
+                                    context.stroke(
+                                        segmentPath,
+                                        with: .color(segment.stage.themeColor),
+                                        style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                                    )
+                                }
+                            }
+
+                            // 6. Selected segment emphasis
+                            if let selectedID = selectedIntervalID,
+                                let selectedInterval = night.displayLaneIntervals.first(where: { $0.id == selectedID })
+                            {
+                                if selectedInterval.stage == .asleepUnspecified {
+                                    let selectedRect = cGeom.rect(
+                                        for: selectedInterval,
+                                        displayedStages: displayedStages
+                                    )
+                                    let selectedPath = Path(roundedRect: selectedRect, cornerRadius: 6)
+                                    context.stroke(
+                                        selectedPath,
+                                        with: .color(Color.white),
+                                        lineWidth: 3
+                                    )
+                                } else {
+                                    let startX = cGeom.xPosition(for: selectedInterval.startDate)
+                                    let endX = cGeom.xPosition(for: selectedInterval.endDate)
+                                    let y = cGeom.yCenterPosition(for: selectedInterval.stage, displayedStages: displayedStages)
+
+                                    var selPath = Path()
+                                    selPath.move(to: CGPoint(x: startX, y: y))
+                                    selPath.addLine(to: CGPoint(x: endX, y: y))
+
+                                    context.stroke(
+                                        selPath,
+                                        with: .color(Color.white),
+                                        style: StrokeStyle(lineWidth: 14, lineCap: .round)
+                                    )
+                                    context.stroke(
+                                        selPath,
+                                        with: .color(selectedInterval.stage.themeColor),
+                                        style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                                    )
+                                }
+                            }
+
+                            // 7. Time tick guidelines
+                            let ticks = cGeom.timeTicks(calendar: calendar)
+
+                            for tick in ticks {
+                                var tickPath = Path()
+                                tickPath.move(to: CGPoint(x: tick.x, y: 0))
+                                tickPath.addLine(to: CGPoint(x: tick.x, y: canvasSize.height))
+                                let opacity = tick.isMajor ? 0.2 : 0.08
+                                context.stroke(tickPath, with: .color(Color.gray.opacity(opacity)), lineWidth: 1)
                             }
                         }
 
-                        // 3. Conflict ranges & markers
-                        for conflict in night.conflicts {
-                            let x1 = cGeom.xPosition(for: conflict.startDate)
-                            let x2 = cGeom.xPosition(for: conflict.endDate)
-                            let width = max(4.0, x2 - x1)
-                            let conflictRect = CGRect(x: x1, y: 0, width: width, height: canvasSize.height - SleepTimelineGeometry.timeAxisHeight)
-
-                            let path = Path(roundedRect: conflictRect, cornerRadius: 2)
-                            context.fill(path, with: .color(Color.yellow.opacity(0.20)))
-                            context.stroke(path, with: .color(Color.orange.opacity(0.6)), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-
-                            let markerPoint = CGPoint(x: x1 + width / 2.0, y: 6)
-                            let circlePath = Path(ellipseIn: CGRect(x: markerPoint.x - 3, y: markerPoint.y - 3, width: 6, height: 6))
-                            context.fill(circlePath, with: .color(Color.orange))
-                        }
-
-                        // 4. Unspecified sleep spanning bands
-                        for interval in night.displayLaneIntervals where interval.stage == .asleepUnspecified {
-                            let bandRect = cGeom.rect(for: interval, displayedStages: displayedStages)
-                            let path = Path(roundedRect: bandRect, cornerRadius: 6)
-                            context.fill(path, with: .color(interval.stage.themeColor))
-                        }
-
-                        // 5. Stepped sleep path
-                        let stepSegments = cGeom.stepSegments(for: night.displayLaneIntervals, displayedStages: displayedStages)
-                        for segment in stepSegments
-                        where segment.isConnector || segment.stage != .asleepUnspecified {
-                            var segmentPath = Path()
-                            segmentPath.move(to: segment.start)
-                            segmentPath.addLine(to: segment.end)
-
-                            if segment.isConnector {
-                                context.stroke(
-                                    segmentPath,
-                                    with: .color(segment.stage.themeColor.opacity(0.55)),
-                                    style: StrokeStyle(lineWidth: 2, lineCap: .butt)
-                                )
-                            } else {
-                                context.stroke(
-                                    segmentPath,
-                                    with: .color(segment.stage.themeColor),
-                                    style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                                )
-                            }
-                        }
-
-                        // 6. Selected segment emphasis
-                        if let selectedID = selectedIntervalID,
-                           let selectedInterval = night.displayLaneIntervals.first(where: { $0.id == selectedID }) {
-                            if selectedInterval.stage == .asleepUnspecified {
-                                let selectedRect = cGeom.rect(
-                                    for: selectedInterval,
-                                    displayedStages: displayedStages
-                                )
-                                let selectedPath = Path(roundedRect: selectedRect, cornerRadius: 6)
-                                context.stroke(
-                                    selectedPath,
-                                    with: .color(Color.white),
-                                    lineWidth: 3
-                                )
-                            } else {
-                                let startX = cGeom.xPosition(for: selectedInterval.startDate)
-                                let endX = cGeom.xPosition(for: selectedInterval.endDate)
-                                let y = cGeom.yCenterPosition(for: selectedInterval.stage, displayedStages: displayedStages)
-
-                                var selPath = Path()
-                                selPath.move(to: CGPoint(x: startX, y: y))
-                                selPath.addLine(to: CGPoint(x: endX, y: y))
-
-                                context.stroke(
-                                    selPath,
-                                    with: .color(Color.white),
-                                    style: StrokeStyle(lineWidth: 14, lineCap: .round)
-                                )
-                                context.stroke(
-                                    selPath,
-                                    with: .color(selectedInterval.stage.themeColor),
-                                    style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                                )
-                            }
-                        }
-
-                        // 7. Time ticks & labels
-                        let ticks = cGeom.timeTicks()
-                        let labelY = canvasSize.height - 12
-                        let formatter = DateFormatter()
-                        formatter.dateFormat = "h:mm a"
-
-                        for tick in ticks {
-                            var tickPath = Path()
-                            tickPath.move(to: CGPoint(x: tick.x, y: 0))
-                            tickPath.addLine(to: CGPoint(x: tick.x, y: canvasSize.height - SleepTimelineGeometry.timeAxisHeight))
-                            let opacity = tick.isMajor ? 0.2 : 0.08
-                            context.stroke(tickPath, with: .color(Color.gray.opacity(opacity)), lineWidth: 1)
-                        }
-
-                        let resolvedLabels = ticks.filter(\.isMajor).map { tick in
-                            let text = Text(formatter.string(from: tick.date))
-                                .font(.caption2)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-                            let resolvedText = context.resolve(text)
-                            let measuredSize = resolvedText.measure(
-                                in: CGSize(width: canvasSize.width, height: .infinity)
-                            )
-                            return (tickX: tick.x, text: resolvedText, width: measuredSize.width)
-                        }
-                        let labelCandidates = resolvedLabels.enumerated().map { index, label in
-                            TimelineTimeLabelCandidate(
-                                index: index,
-                                tickX: label.tickX,
-                                labelWidth: label.width
-                            )
-                        }
-
-                        for layout in cGeom.timeLabelLayouts(for: labelCandidates) {
-                            context.draw(
-                                resolvedLabels[layout.candidateIndex].text,
-                                at: CGPoint(x: layout.centerX, y: labelY),
-                                anchor: .center
-                            )
-                        }
-                    }
-
-                    if isInteractive && timelineInteractionEnabled {
-                        // Interactive UIKit overlay
-                        TimelineGestureOverlay(
-                            resetGeneration: gestureResetGeneration,
-                            onInteractionBegan: {
-                                var transaction = Transaction(animation: nil)
-                                transaction.disablesAnimations = true
-                                withTransaction(transaction) {
-                                    interaction.begin(viewport: TimelineViewport(normalizing: viewportStart, end: viewportEnd))
-                                }
-                                onUpdateLiveViewport(interaction.liveViewport)
-                            },
-                            onPanChanged: { translationX in
-                                var transaction = Transaction(animation: nil)
-                                transaction.disablesAnimations = true
-                                withTransaction(transaction) {
-                                    interaction.updatePan(translationX: translationX, geometry: geom)
-                                }
-                                onUpdateLiveViewport(interaction.liveViewport)
-                            },
-                            onPinchChanged: { scale, centroidX in
-                                var transaction = Transaction(animation: nil)
-                                transaction.disablesAnimations = true
-                                withTransaction(transaction) {
-                                    interaction.updateMagnification(scale, anchorX: centroidX, geometry: geom)
-                                }
-                                onUpdateLiveViewport(interaction.liveViewport)
-                            },
-                            onInteractionEnded: { velocityX in
-                                let settled = interaction.settledViewport(
-                                    geometry: geom,
-                                    velocityX: velocityX,
-                                    reduceMotion: reduceMotion
-                                )
-                                if reduceMotion {
+                        if isInteractive && timelineInteractionEnabled {
+                            // Interactive UIKit overlay
+                            TimelineGestureOverlay(
+                                resetGeneration: gestureResetGeneration,
+                                onInteractionBegan: {
                                     var transaction = Transaction(animation: nil)
                                     transaction.disablesAnimations = true
                                     withTransaction(transaction) {
-                                        onUpdateViewport(settled.start, settled.end)
-                                        onUpdateLiveViewport(nil)
+                                        interaction.begin(viewport: TimelineViewport(normalizing: viewportStart, end: viewportEnd))
                                     }
-                                } else {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                                        onUpdateViewport(settled.start, settled.end)
-                                        onUpdateLiveViewport(nil)
+                                },
+                                onPanChanged: { translationX in
+                                    var transaction = Transaction(animation: nil)
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction) {
+                                        interaction.updatePan(translationX: translationX, geometry: geom)
+                                    }
+                                },
+                                onPinchChanged: { scale, centroidX in
+                                    var transaction = Transaction(animation: nil)
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction) {
+                                        interaction.updateMagnification(scale, anchorX: centroidX, geometry: geom)
+                                    }
+                                },
+                                onInteractionEnded: { velocityX in
+                                    let settled = interaction.settledViewport(
+                                        geometry: geom,
+                                        velocityX: velocityX,
+                                        reduceMotion: reduceMotion
+                                    )
+                                    if reduceMotion {
+                                        var transaction = Transaction(animation: nil)
+                                        transaction.disablesAnimations = true
+                                        withTransaction(transaction) {
+                                            onUpdateViewport(settled.start, settled.end)
+                                        }
+                                    } else {
+                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                                            onUpdateViewport(settled.start, settled.end)
+                                        }
+                                    }
+                                },
+                                onInteractionCancelled: {
+                                    cancelInteraction(invalidateRecognizers: false)
+                                },
+                                onTap: { location in
+                                    if let tapped = geom.intervalAt(point: location, in: night.displayLaneIntervals, displayedStages: displayedStages) {
+                                        onSelectInterval(tapped)
                                     }
                                 }
-                            },
-                            onInteractionCancelled: {
-                                cancelInteraction(invalidateRecognizers: false)
-                            },
-                            onTap: { location in
-                                if let tapped = geom.intervalAt(point: location, in: night.displayLaneIntervals, displayedStages: displayedStages) {
-                                    onSelectInterval(tapped)
-                                }
-                            }
-                        )
+                            )
 
-                        // VoiceOver chronological elements
-                        VStack(spacing: 0) {
-                            ForEach(night.displayLaneIntervals) { interval in
-                                Rectangle()
-                                    .fill(Color.clear)
-                                    .frame(width: 1, height: 1)
-                                    .accessibilityElement(children: .ignore)
-                                    .accessibilityLabel(interval.accessibilityDescription)
-                                    .accessibilityHint("Double tap to inspect interval details and options")
-                                    .accessibilityAddTraits(.isButton)
-                                    .accessibilityAction {
-                                        onSelectInterval(interval)
-                                    }
+                            // VoiceOver chronological elements
+                            VStack(spacing: 0) {
+                                ForEach(night.displayLaneIntervals) { interval in
+                                    Rectangle()
+                                        .fill(Color.clear)
+                                        .frame(width: 1, height: 1)
+                                        .accessibilityElement(children: .ignore)
+                                        .accessibilityLabel(interval.accessibilityDescription)
+                                        .accessibilityHint("Double tap to inspect interval details and options")
+                                        .accessibilityAddTraits(.isButton)
+                                        .accessibilityAction {
+                                            onSelectInterval(interval)
+                                        }
+                                }
                             }
+                            .accessibilityElement(children: .contain)
+                            .accessibilityLabel("Sleep Timeline Chronological Intervals")
                         }
-                        .accessibilityElement(children: .contain)
-                        .accessibilityLabel("Sleep Timeline Chronological Intervals")
+                    }
+                    .frame(height: verticalLayout.plotHeight)
+
+                    CombinedTimelineRail(
+                        night: night,
+                        viewport: liveViewport,
+                        isInteractive: isInteractive && timelineInteractionEnabled
+                    ) { newViewport in
+                        onUpdateViewport(newViewport.start, newViewport.end)
                     }
                 }
             }
@@ -377,7 +365,6 @@ public struct SleepTimelineCanvas: View {
             if invalidateRecognizers {
                 gestureResetGeneration &+= 1
             }
-            onUpdateLiveViewport(nil)
         }
     }
 }

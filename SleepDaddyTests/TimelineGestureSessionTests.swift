@@ -1,5 +1,4 @@
 import Testing
-import CoreGraphics
 @testable import SleepDaddy
 
 struct TimelineGestureSessionTests {

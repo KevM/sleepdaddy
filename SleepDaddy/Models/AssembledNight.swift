@@ -24,10 +24,6 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
     /// so the data never sits flush against the edge of the view.
     public static let detectedViewportGutter: TimeInterval = 20 * 60
 
-    public var isExtended: Bool {
-        detectedStart < coreWindowStart || detectedEnd > coreWindowEnd
-    }
-
     /// The window the timeline opens to: the detected sleep span padded by a gutter on each
     /// side. The configured core window acts only as a baseline the detection expands within,
     /// so an empty stretch of the configured night is never shown when the data is narrower.

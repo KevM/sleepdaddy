@@ -236,8 +236,8 @@ struct SleepTimelineGeometryTests {
 
         #expect(abs(rect.minX - 103.5) < 0.001)
         #expect(abs(rect.maxX - 200) < 0.001)
-        #expect(abs(rect.minY - 94) < 0.001)
-        #expect(abs(rect.maxY - 258) < 0.001)
+        #expect(abs(rect.minY - 88) < 0.001)
+        #expect(abs(rect.maxY - 244) < 0.001)
     }
 
     @Test func unspecifiedSleepUsesCenterOfSleepRowsForConnectors() {
@@ -279,10 +279,10 @@ struct SleepTimelineGeometryTests {
             .filter(\.isConnector)
 
         #expect(connectors.count == 2)
-        #expect(connectors[0].start == CGPoint(x: 35.83333333333333, y: 176))
-        #expect(connectors[0].end == CGPoint(x: 35.83333333333333, y: 176))
-        #expect(connectors[1].start == CGPoint(x: 64.66666666666666, y: 176))
-        #expect(connectors[1].end == CGPoint(x: 64.66666666666666, y: 112))
+        #expect(connectors[0].start == CGPoint(x: 35.83333333333333, y: 166))
+        #expect(connectors[0].end == CGPoint(x: 35.83333333333333, y: 166))
+        #expect(connectors[1].start == CGPoint(x: 64.66666666666666, y: 166))
+        #expect(connectors[1].end == CGPoint(x: 64.66666666666666, y: 106))
     }
 
     @Test func unspecifiedSleepCanBeHitAnywhereInsideSpanningBand() {
@@ -587,5 +587,208 @@ struct SleepTimelineGeometryTests {
         )
         #expect(moved.duration == viewport.duration)
         #expect(geometry.clamped(moved) == moved)
+    }
+
+    @Test func timelineCanvasReservesCombinedRailHeightExactlyOnce() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let layout = SleepTimelineCanvasVerticalLayout(totalHeight: 320)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: TimelineViewport(start: start, end: end),
+            canvasWidth: 400,
+            canvasHeight: layout.geometryHeight
+        )
+
+        #expect(layout.plotHeight == 276)
+        #expect(geometry.usablePlotHeight() == 260)
+        #expect(layout.plotHeight - geometry.usablePlotHeight() == SleepTimelineGeometry.topPadding)
+    }
+
+    @Test func compactTimelineGeometryKeepsEveryLaneInsideThePlotFrame() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let layout = SleepTimelineCanvasVerticalLayout(totalHeight: 100)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: TimelineViewport(start: start, end: end),
+            canvasWidth: 400,
+            canvasHeight: layout.geometryHeight
+        )
+
+        let deepCenter = geometry.yCenterPosition(for: .deep)
+        let halfLaneHeight = geometry.laneHeight(displayedStagesCount: 4) / 2
+
+        #expect(deepCenter + halfLaneHeight <= layout.plotHeight)
+    }
+
+    @Test func combinedTimelineRailUsesOneCompactTouchTarget() {
+        #expect(SleepTimelineGeometry.timeAxisHeight == 44)
+        #expect(SleepTimelineGeometry.timeLabelBandHeight == 20)
+        #expect(SleepTimelineGeometry.navigatorTrackHeight == 10)
+    }
+
+    @Test func combinedTimelineRailLabelBandInteractionRecentersAndDragsViewport() throws {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let viewport = TimelineViewport(
+            start: start.addingTimeInterval(3600),
+            end: start.addingTimeInterval(5 * 3600)
+        )
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: viewport,
+            canvasWidth: 400,
+            canvasHeight: 300
+        )
+        let railLayout = CombinedTimelineRailLayout(width: 400)
+        let interaction = try #require(
+            railLayout.interaction(
+                startingAt: CGPoint(x: 300, y: 10),
+                translationWidth: 40,
+                isEnabled: true
+            )
+        )
+
+        let recentered = geometry.navigatorViewport(
+            viewport,
+            centeredAtX: interaction.startX,
+            navigatorWidth: railLayout.width
+        )
+        let dragged = geometry.navigatorViewport(
+            recentered,
+            translatedBy: interaction.translationWidth,
+            navigatorWidth: railLayout.width
+        )
+
+        #expect(interaction.startX == 300)
+        #expect(abs(recentered.start.timeIntervalSince(start) - 7 * 3600) < 0.001)
+        #expect(abs(dragged.start.timeIntervalSince(start) - 8 * 3600) < 0.001)
+    }
+
+    @Test func railTapAndInitialDragProduceOneFinalViewport() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let viewport = TimelineViewport(
+            start: start.addingTimeInterval(3600),
+            end: start.addingTimeInterval(5 * 3600)
+        )
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: viewport,
+            canvasWidth: 400,
+            canvasHeight: 300
+        )
+        let layout = CombinedTimelineRailLayout(width: 400)
+        let interaction = CombinedTimelineRailInteraction(
+            startX: 300,
+            translationWidth: 40
+        )
+
+        let update = layout.updatedViewport(
+            for: interaction,
+            baseline: nil,
+            current: viewport,
+            geometry: geometry
+        )
+
+        #expect(abs(update.viewport.start.timeIntervalSince(start) - 8 * 3600) < 0.001)
+        #expect(update.baseline.start.timeIntervalSince(start) == 7 * 3600)
+    }
+
+    @Test func viewportClampDoesNotRequireCanvasDimensions() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let proposed = TimelineViewport(
+            start: end.addingTimeInterval(-3600),
+            end: end.addingTimeInterval(3 * 3600)
+        )
+
+        let clamped = SleepTimelineGeometry.clamped(
+            proposed,
+            totalStart: start,
+            totalEnd: end
+        )
+
+        #expect(clamped.start == end.addingTimeInterval(-4 * 3600))
+        #expect(clamped.end == end)
+    }
+
+    @Test func viewportClampKeepsPositiveDurationForDegenerateBounds() {
+        let instant = Date(timeIntervalSinceReferenceDate: 0)
+        let proposed = TimelineViewport(
+            start: instant.addingTimeInterval(-60),
+            end: instant.addingTimeInterval(60)
+        )
+
+        let clamped = SleepTimelineGeometry.clamped(
+            proposed,
+            totalStart: instant,
+            totalEnd: instant
+        )
+
+        #expect(clamped.start == instant)
+        #expect(clamped.duration == 1)
+    }
+
+    @Test func combinedTimelineRailRejectsInteractionWhenDisabled() {
+        let railLayout = CombinedTimelineRailLayout(width: 400)
+
+        #expect(
+            railLayout.interaction(
+                startingAt: CGPoint(x: 200, y: 10),
+                translationWidth: 20,
+                isEnabled: false
+            ) == nil
+        )
+    }
+
+    @Test func disabledCombinedTimelineRailDoesNotAdvertiseAdjustment() {
+        let presentation = CombinedTimelineRailAccessibilityPresentation(
+            isInteractive: false
+        )
+
+        #expect(presentation.adjustmentHint == nil)
+        #expect(!presentation.supportsAdjustment)
+    }
+
+    @Test func combinedTimelineRailMinimumHandleStaysInsideLeftBoundary() {
+        let handle = CombinedTimelineRailLayout(width: 400).viewportHandle(
+            fromX: 0,
+            toX: 2
+        )
+
+        #expect(handle == CGRect(x: 0, y: 0, width: 10, height: 10))
+    }
+
+    @Test func combinedTimelineRailMinimumHandleStaysInsideRightBoundary() {
+        let handle = CombinedTimelineRailLayout(width: 400).viewportHandle(
+            fromX: 398,
+            toX: 400
+        )
+
+        #expect(handle == CGRect(x: 390, y: 0, width: 10, height: 10))
+    }
+
+    @Test func combinedTimelineRailMinimumHandleStaysCenteredInTrackInterior() {
+        let handle = CombinedTimelineRailLayout(width: 400).viewportHandle(
+            fromX: 199,
+            toX: 201
+        )
+
+        #expect(handle == CGRect(x: 195, y: 0, width: 10, height: 10))
+    }
+
+    @Test func combinedTimelineRailHandleNeverExceedsNarrowTrack() {
+        let handle = CombinedTimelineRailLayout(width: 6).viewportHandle(
+            fromX: 2,
+            toX: 4
+        )
+
+        #expect(handle == CGRect(x: 0, y: 0, width: 6, height: 10))
     }
 }

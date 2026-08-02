@@ -116,11 +116,13 @@ public struct SleepTimelineGeometry: Sendable {
         }
     }
 
-    public static let timeAxisHeight: CGFloat = 28.0
+    public static let timeAxisHeight: CGFloat = 44.0
+    public static let timeLabelBandHeight: CGFloat = 20.0
+    public static let navigatorTrackHeight: CGFloat = 10.0
     public static let defaultDisplayedStages: [SleepStage] = [.awake, .rem, .core, .deep]
 
     public func usablePlotHeight() -> CGFloat {
-        max(120.0, canvasHeight - Self.topPadding - Self.timeAxisHeight)
+        max(1.0, canvasHeight - Self.topPadding - Self.timeAxisHeight)
     }
 
     public func laneHeight(displayedStagesCount count: Int) -> CGFloat {
@@ -231,7 +233,21 @@ public struct SleepTimelineGeometry: Sendable {
     /// position inside the window; the result is then translated to fit within
     /// `[totalStart, totalEnd]`.
     public func clamped(_ proposed: TimelineViewport, anchorDate: Date? = nil) -> TimelineViewport {
-        let maxDuration = totalDuration
+        Self.clamped(
+            proposed,
+            totalStart: totalStart,
+            totalEnd: totalEnd,
+            anchorDate: anchorDate
+        )
+    }
+
+    public static func clamped(
+        _ proposed: TimelineViewport,
+        totalStart: Date,
+        totalEnd: Date,
+        anchorDate: Date? = nil
+    ) -> TimelineViewport {
+        let maxDuration = max(1.0, totalEnd.timeIntervalSince(totalStart))
         let minDuration = min(Self.minimumViewportDuration, maxDuration)
         let targetDuration = min(maxDuration, max(minDuration, proposed.duration))
 

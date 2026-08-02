@@ -52,12 +52,14 @@ public struct NightHeaderView: View {
         )
     }
 
+    static func formattedDuration(for night: AssembledNight) -> String {
+        night.hasSleepData
+            ? AccessibilityHelpers.formattedTimeInterval(night.summary.totalSleepDuration)
+            : "No Data"
+    }
+
     private var durationFormatted: String {
-        if night.hasSleepData {
-            return AccessibilityHelpers.formattedTimeInterval(night.summary.totalSleepDuration)
-        } else {
-            return "No Data"
-        }
+        Self.formattedDuration(for: night)
     }
 
     @ViewBuilder
@@ -76,7 +78,8 @@ public struct NightHeaderView: View {
         }
     }
 
-    public var body: some View {
+    @ViewBuilder
+    private var headerContent: some View {
         HStack(spacing: 8) {
             Button(action: {
                 if canGoPrevious {
@@ -104,8 +107,6 @@ public struct NightHeaderView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
                         Image(systemName: "chevron.down")
                             .font(.caption2)
                             .fontWeight(.medium)
@@ -115,8 +116,6 @@ public struct NightHeaderView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(night.hasSleepData ? .accentColor : .secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
                 }
                 .padding(.vertical, 4)
                 .padding(.horizontal, 12)
@@ -143,9 +142,13 @@ public struct NightHeaderView: View {
             .accessibilityLabel("Next night")
             .accessibilityHint("Switches to the next night")
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(UIColor.systemBackground))
+    }
+
+    public var body: some View {
+        headerContent
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color(UIColor.systemBackground))
         .gesture(
             DragGesture(minimumDistance: 24)
                 .onChanged { value in

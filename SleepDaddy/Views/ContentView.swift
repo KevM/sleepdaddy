@@ -1,10 +1,31 @@
 import SwiftUI
 
+enum SelectedNightLayoutMode: Equatable {
+    case standard
+    case immersiveLandscape
+
+    static func resolve(verticalSizeClass: UserInterfaceSizeClass?) -> SelectedNightLayoutMode {
+        verticalSizeClass == .compact ? .immersiveLandscape : .standard
+    }
+}
+
 public struct ContentView: View {
     @State private var model: NightBrowserModel
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     public init(model: NightBrowserModel? = nil) {
         self._model = State(initialValue: model ?? NightBrowserModel())
+    }
+
+    private var currentLayoutMode: SelectedNightLayoutMode {
+        SelectedNightLayoutMode.resolve(verticalSizeClass: verticalSizeClass)
+    }
+
+    private var selectedDateRange: ClosedRange<Date>? {
+        guard let first = model.assembledNights.first?.date,
+              let last = model.assembledNights.last?.date,
+              first <= last else { return nil }
+        return first...last
     }
 
     public var body: some View {
@@ -86,31 +107,28 @@ public struct ContentView: View {
 
                 case .loaded:
                     VStack(spacing: 0) {
-                        if let night = model.selectedAssembledNight {
-                            let dateRange: ClosedRange<Date>? = {
-                                guard let first = model.assembledNights.first?.date,
-                                      let last = model.assembledNights.last?.date,
-                                      first <= last else { return nil }
-                                return first...last
-                            }()
+                        if currentLayoutMode == .standard {
+                            if let night = model.selectedAssembledNight {
+                                NightHeaderView(
+                                    night: night,
+                                    canGoPrevious: model.canSelectPreviousNight,
+                                    canGoNext: model.canSelectNextNight,
+                                    dateRange: selectedDateRange,
+                                    onPrevious: model.selectPreviousNight,
+                                    onNext: model.selectNextNight,
+                                    onSelectDate: model.selectNight
+                                )
+                            }
 
-                            NightHeaderView(
-                                night: night,
-                                canGoPrevious: model.canSelectPreviousNight,
-                                canGoNext: model.canSelectNextNight,
-                                dateRange: dateRange,
-                                onPrevious: model.selectPreviousNight,
-                                onNext: model.selectNextNight,
-                                onSelectDate: model.selectNight
-                            )
+                            Divider()
+                                .padding(.vertical, 8)
+
+                            // Selected Night Detail
+                            SelectedNightDetailView(model: model)
+                            .padding(.vertical, 8)
+                        } else {
+                            SelectedNightDetailView(model: model)
                         }
-
-                        Divider()
-                            .padding(.vertical, 8)
-
-                        // Selected Night Detail
-                        SelectedNightDetailView(model: model)
-                            .padding(.vertical, 8)
                     }
                     .frame(
                         maxWidth: .infinity,
@@ -122,6 +140,22 @@ public struct ContentView: View {
             .navigationTitle("SleepDaddy")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if model.appState == .loaded,
+                   currentLayoutMode == .immersiveLandscape,
+                   let night = model.selectedAssembledNight {
+                    ToolbarItem(placement: .principal) {
+                        LandscapeNightToolbarView(
+                            night: night,
+                            dateRange: selectedDateRange,
+                            canGoPrevious: model.canSelectPreviousNight,
+                            canGoNext: model.canSelectNextNight,
+                            onPrevious: model.selectPreviousNight,
+                            onNext: model.selectNextNight,
+                            onSelectDate: model.selectNight
+                        )
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 0) {
                         CompactSourceFilterButton(
