@@ -11,6 +11,7 @@ enum SelectedNightLayoutMode: Equatable {
 
 public struct ContentView: View {
     @State private var model: NightBrowserModel
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     public init(model: NightBrowserModel? = nil) {
@@ -221,6 +222,11 @@ public struct ContentView: View {
             }
             .task {
                 await model.loadData()
+            }
+            .onChange(of: scenePhase) { _, newScenePhase in
+                Task {
+                    await model.handleScenePhaseChange(newScenePhase)
+                }
             }
         }
     }

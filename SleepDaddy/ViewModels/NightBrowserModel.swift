@@ -101,6 +101,12 @@ public final class NightBrowserModel: @unchecked Sendable {
         }
     }
 
+    @MainActor
+    public func handleScenePhaseChange(_ scenePhase: ScenePhase) async {
+        guard scenePhase == .active else { return }
+        await loadData()
+    }
+
     public var selectedAssembledNight: AssembledNight? {
         assembledNights.first { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
     }

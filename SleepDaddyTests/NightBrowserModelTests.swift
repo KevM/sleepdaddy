@@ -80,6 +80,45 @@ struct NightBrowserModelTests {
         #expect(Self.testCalendar.isDate(model.selectedDate, inSameDayAs: Self.july24Date))
     }
 
+    @Test @MainActor func sceneActivationRefreshesNewSleepData() async {
+        let olderInterval = NormalizedSleepInterval(
+            id: "older-foreground-refresh",
+            startDate: Self.testCalendar.date(bySettingHour: 23, minute: 0, second: 0, of: Self.july20Date)!,
+            endDate: Self.testCalendar.date(
+                bySettingHour: 7,
+                minute: 0,
+                second: 0,
+                of: Self.testCalendar.date(byAdding: .day, value: 1, to: Self.july20Date)!
+            )!,
+            stage: .core,
+            sourceName: "Watch",
+            sourceIdentifier: "com.apple.health"
+        )
+        let newerInterval = NormalizedSleepInterval(
+            id: "newer-foreground-refresh",
+            startDate: Self.testCalendar.date(bySettingHour: 23, minute: 0, second: 0, of: Self.july24Date)!,
+            endDate: Self.testCalendar.date(bySettingHour: 7, minute: 0, second: 0, of: Self.july25Noon)!,
+            stage: .core,
+            sourceName: "Watch",
+            sourceIdentifier: "com.apple.health"
+        )
+        let fixtureStore = FixtureSleepStore(customIntervals: [olderInterval])
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let model = NightBrowserModel(
+            store: fixtureStore,
+            preferencesStore: PreferencesStore(userDefaults: defaults),
+            now: { Self.july25Noon }
+        )
+        await model.loadData()
+        #expect(Self.testCalendar.isDate(model.selectedDate, inSameDayAs: Self.july20Date))
+
+        fixtureStore.customIntervals = [olderInterval, newerInterval]
+        await model.handleScenePhaseChange(.active)
+
+        #expect(Self.testCalendar.isDate(model.selectedDate, inSameDayAs: Self.july24Date))
+        #expect(model.selectedAssembledNight?.rawIntervals.contains { $0.id == newerInterval.id } == true)
+    }
+
     @Test @MainActor func viewportFocusesDetectedSleepWithGutter() async {
         let sleepStart = Self.testCalendar.date(
             bySettingHour: 23,
