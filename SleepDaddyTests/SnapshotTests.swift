@@ -21,6 +21,7 @@ private final class HostedTimelinePresentationRecorder {
     var headerPresentation: NightHeaderView.Presentation?
     var headerBounds: CGRect?
     var landscapeToolbarIsPresent = false
+    var combinedRailIsPresent = false
     var landscapeToolbarElements: [LandscapeNightToolbarSemanticElement] = []
 }
 
@@ -119,6 +120,19 @@ private struct LandscapeToolbarPresenceCaptureView: UIViewRepresentable {
     }
 }
 
+private struct CombinedTimelineRailPresenceCaptureView: UIViewRepresentable {
+    let isPresent: Bool
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.combinedRailIsPresent = isPresent
+    }
+}
+
 private struct LandscapeToolbarElementsCaptureView: UIViewRepresentable {
     let elements: [LandscapeNightToolbarSemanticElement]
     let recorder: HostedTimelinePresentationRecorder
@@ -138,6 +152,7 @@ private struct HostedTimelinePresentationMetrics {
     let headerPresentation: NightHeaderView.Presentation?
     let headerBounds: CGRect?
     let landscapeToolbarIsPresent: Bool
+    let combinedRailIsPresent: Bool
 }
 
 /// Composition tests for the timeline views.
@@ -660,6 +675,15 @@ struct SnapshotTests {
                 )
                 .frame(width: 0, height: 0)
             }
+            .overlayPreferenceValue(
+                CombinedTimelineRailPresencePreferenceKey.self
+            ) { isPresent in
+                CombinedTimelineRailPresenceCaptureView(
+                    isPresent: isPresent,
+                    recorder: recorder
+                )
+                .frame(width: 0, height: 0)
+            }
         )
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -670,7 +694,8 @@ struct SnapshotTests {
                 timelineBounds: nil,
                 headerPresentation: nil,
                 headerBounds: nil,
-                landscapeToolbarIsPresent: false
+                landscapeToolbarIsPresent: false,
+                combinedRailIsPresent: false
             )
         }
         let window = UIWindow(windowScene: windowScene)
@@ -724,7 +749,8 @@ struct SnapshotTests {
                 timelineBounds: recorder.timelineBounds,
                 headerPresentation: recorder.headerPresentation,
                 headerBounds: recorder.headerBounds,
-                landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent
+                landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent,
+                combinedRailIsPresent: recorder.combinedRailIsPresent
             )
         }
 
@@ -736,7 +762,8 @@ struct SnapshotTests {
             timelineBounds: recorder.timelineBounds,
             headerPresentation: recorder.headerPresentation,
             headerBounds: recorder.headerBounds,
-            landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent
+            landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent,
+            combinedRailIsPresent: recorder.combinedRailIsPresent
         )
     }
 
@@ -810,6 +837,7 @@ struct SnapshotTests {
             "Actual post-frame timeline bounds: \(timelineBounds)"
         )
         #expect(metrics.landscapeToolbarIsPresent)
+        #expect(metrics.combinedRailIsPresent)
         #expect(metrics.headerPresentation == nil)
     }
 
@@ -836,6 +864,7 @@ struct SnapshotTests {
             "Actual post-frame timeline bounds: \(timelineBounds)"
         )
         #expect(metrics.landscapeToolbarIsPresent)
+        #expect(metrics.combinedRailIsPresent)
         #expect(metrics.headerPresentation == nil)
     }
 
@@ -854,6 +883,7 @@ struct SnapshotTests {
             expectedTimelineLayoutMode: .standard,
             isReady: { model.appState == .loaded }
         )
+        #expect(metrics.combinedRailIsPresent)
         #expect(metrics.headerPresentation == .standalone)
     }
 
@@ -900,17 +930,15 @@ struct SnapshotTests {
         #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: nil) == .standard)
     }
 
-    @Test func immersiveTimelineFillsAvailableHeightWithoutCollapsing() {
+    @Test func immersiveTimelineUsesAllAvailableHeightWithoutExternalNavigator() {
         #expect(
             SelectedNightDetailView.immersiveTimelineHeight(
-                availableHeight: 320,
-                navigatorHeight: 64
-            ) == 250
+                availableHeight: 320
+            ) == 320
         )
         #expect(
             SelectedNightDetailView.immersiveTimelineHeight(
-                availableHeight: 250,
-                navigatorHeight: 64
+                availableHeight: 210
             ) == 220
         )
     }
@@ -971,12 +999,6 @@ private struct NightDetailCompositeView: View {
                 onUpdateViewport: { _, _ in }
             )
             .frame(height: 320)
-            SlimContextNavigator(
-                night: night,
-                viewportStart: night.detectedStart,
-                viewportEnd: night.detectedEnd,
-                onUpdateViewport: { _ in }
-            )
         }
         .padding(16)
         .background(Color(UIColor.systemGroupedBackground))

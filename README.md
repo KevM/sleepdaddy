@@ -10,7 +10,7 @@ Its primary experience is a zoomable, pannable sleep-stage timeline supported by
 - **Maps-Style Direct Manipulation**: Smooth, high-performance timeline canvas with anchored pinch-to-zoom, low-latency continuous panning, and velocity-based spring inertia (disabled under Reduce Motion).
 - **Compact Night Navigation**: Date header with edge-to-edge swipe gestures, date picker sheet, and directional navigation buttons for quick traversal across nights.
 - **Smart Populated Startup**: Opens automatically to the newest night containing eligible sleep data for immediate inspection.
-- **Slim Context Navigator**: Minimal mini-map track showing core sleep window boundaries and active viewport placement within full night bounds.
+- **Combined Timeline Rail**: Adaptive labels describe the visible window while a compact interactive mini-map preserves full-night context without duplicating configured-time legends.
 - **Explicit Source Filtering**: Select which HealthKit data sources (e.g. Apple Watch, Oura, Sleep Cycle) contribute to the timeline.
 - **Brief Awake Filtering**: Optionally hide awake intervals of one minute or less from the timeline, for trackers that emit many short awake samples. Drawing only — sleep, awake, and stage totals are always reported from the unfiltered data.
 - **Adaptive Night Boundaries**: Automatically expands core window boundaries (default 7:00 PM to 7:00 AM) to include contiguous sleep sessions while keeping disconnected naps out.

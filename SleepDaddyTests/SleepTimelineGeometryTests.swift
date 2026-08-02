@@ -589,6 +589,23 @@ struct SleepTimelineGeometryTests {
         #expect(geometry.clamped(moved) == moved)
     }
 
+    @Test func timelineCanvasReservesCombinedRailHeightExactlyOnce() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let layout = SleepTimelineCanvasVerticalLayout(totalHeight: 320)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: TimelineViewport(start: start, end: end),
+            canvasWidth: 400,
+            canvasHeight: layout.geometryHeight
+        )
+
+        #expect(layout.plotHeight == 276)
+        #expect(geometry.usablePlotHeight() == 260)
+        #expect(layout.plotHeight - geometry.usablePlotHeight() == SleepTimelineGeometry.topPadding)
+    }
+
     @Test func combinedTimelineRailUsesOneCompactTouchTarget() {
         #expect(SleepTimelineGeometry.timeAxisHeight == 44)
         #expect(SleepTimelineGeometry.timeLabelBandHeight == 20)

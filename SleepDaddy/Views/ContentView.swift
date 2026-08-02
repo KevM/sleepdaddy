@@ -33,6 +33,13 @@ struct SelectedNightTimelineBoundsPreferenceKey: PreferenceKey {
     }
 }
 
+struct CombinedTimelineRailPresencePreferenceKey: PreferenceKey {
+    static let defaultValue = false
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
 public struct ContentView: View {
     @State private var model: NightBrowserModel
     @Environment(\.verticalSizeClass) private var verticalSizeClass

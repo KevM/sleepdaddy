@@ -3,7 +3,6 @@ import SwiftUI
 public struct SelectedNightDetailView: View {
     @Bindable var model: NightBrowserModel
     let layoutMode: SelectedNightLayoutMode
-    @State private var viewportPresentation = TimelineViewportPresentation()
 
     public init(model: NightBrowserModel) {
         self.model = model
@@ -19,10 +18,9 @@ public struct SelectedNightDetailView: View {
     }
 
     nonisolated static func immersiveTimelineHeight(
-        availableHeight: CGFloat,
-        navigatorHeight: CGFloat
+        availableHeight: CGFloat
     ) -> CGFloat {
-        max(220, availableHeight - navigatorHeight - 6)
+        max(220, availableHeight)
     }
 
     public var body: some View {
@@ -45,36 +43,24 @@ public struct SelectedNightDetailView: View {
                 )
             }
         }
-        .onChange(of: model.selectedAssembledNight?.id) { _, _ in
-            viewportPresentation.clearLiveViewport()
-        }
-        .onDisappear {
-            viewportPresentation.clearLiveViewport()
-        }
     }
 
     @ViewBuilder
     private var standardDetail: some View {
-        VStack(spacing: 12) {
-            if let night = model.selectedAssembledNight {
-                if night.hasSleepData {
-                    // Detailed Zoomable Timeline Canvas
-                    timelineCanvas(night: night)
-                        .anchorPreference(
-                            key: SelectedNightTimelineBoundsPreferenceKey.self,
-                            value: .bounds,
-                            transform: { $0 }
-                        )
-
-                    // Slim Context Navigator
-                    contextNavigator(night: night)
-                } else {
-                    emptyNightState
-                }
+        if let night = model.selectedAssembledNight {
+            if night.hasSleepData {
+                timelineCanvas(night: night)
+                    .anchorPreference(
+                        key: SelectedNightTimelineBoundsPreferenceKey.self,
+                        value: .bounds,
+                        transform: { $0 }
+                    )
             } else {
-                ProgressView("Loading night...")
-                    .frame(height: 240)
+                emptyNightState
             }
+        } else {
+            ProgressView("Loading night...")
+                .frame(height: 240)
         }
     }
 
@@ -83,23 +69,15 @@ public struct SelectedNightDetailView: View {
         if let night = model.selectedAssembledNight {
             if night.hasSleepData {
                 GeometryReader { proxy in
-                    ScrollView(.vertical) {
-                        VStack(spacing: 6) {
-                            timelineCanvas(night: night)
-                                .frame(height: Self.immersiveTimelineHeight(
-                                    availableHeight: proxy.size.height,
-                                    navigatorHeight: 64
-                                ))
-                                .anchorPreference(
-                                    key: SelectedNightTimelineBoundsPreferenceKey.self,
-                                    value: .bounds,
-                                    transform: { $0 }
-                                )
-
-                            contextNavigator(night: night)
-                        }
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
+                    timelineCanvas(night: night)
+                        .frame(height: Self.immersiveTimelineHeight(
+                            availableHeight: proxy.size.height
+                        ))
+                        .anchorPreference(
+                            key: SelectedNightTimelineBoundsPreferenceKey.self,
+                            value: .bounds,
+                            transform: { $0 }
+                        )
                 }
             } else {
                 emptyNightState
@@ -123,39 +101,12 @@ public struct SelectedNightDetailView: View {
             },
             onUpdateViewport: { newStart, newEnd in
                 model.updateViewport(start: newStart, end: newEnd)
-            },
-            onUpdateLiveViewport: { liveViewport in
-                if let liveViewport {
-                    viewportPresentation.updateLiveViewport(liveViewport)
-                } else {
-                    viewportPresentation.clearLiveViewport()
-                }
             }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .preference(
             key: SelectedNightTimelineLayoutPreferenceKey.self,
             value: layoutMode
-        )
-        .padding(.horizontal, 16)
-    }
-
-    private func contextNavigator(night: AssembledNight) -> some View {
-        let committedViewport = TimelineViewport(
-            normalizing: model.viewportStart,
-            end: model.viewportEnd
-        )
-        let displayedViewport = viewportPresentation.displayedViewport(
-            committed: committedViewport
-        )
-
-        return SlimContextNavigator(
-            night: night,
-            viewportStart: displayedViewport.start,
-            viewportEnd: displayedViewport.end,
-            onUpdateViewport: { newViewport in
-                model.updateViewport(start: newViewport.start, end: newViewport.end)
-            }
         )
         .padding(.horizontal, 16)
     }
