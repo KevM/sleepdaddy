@@ -268,14 +268,22 @@ struct SnapshotTests {
     }
 
     @Test @MainActor func landscapeToolbarSeparatesDateAndDuration() async throws {
+        let locale = Locale(identifier: "en_US")
+        let timeZone = TimeZone(secondsFromGMT: -12 * 3600)!
+        let night = makeFixtureNight()
+        let expectedDateLabel = NightHeaderView.formattedDate(
+            night.date,
+            locale: locale,
+            timeZone: timeZone
+        )
         let recorder = HostedTimelinePresentationRecorder()
         let toolbar = LandscapeNightToolbarView(
-            night: makeFixtureNight(),
+            night: night,
             dateRange: nil,
             onSelectDate: { _ in }
         )
-        .environment(\.locale, Locale(identifier: "en_US"))
-        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+        .environment(\.locale, locale)
+        .environment(\.timeZone, timeZone)
         .overlayPreferenceValue(
             LandscapeNightToolbarSemanticElementsPreferenceKey.self
         ) { elements in
@@ -311,7 +319,7 @@ struct SnapshotTests {
         )
         #expect(recorder.landscapeToolbarElements.count == 2)
         #expect(dateElement.isInteractive)
-        #expect(dateElement.accessibilityLabel == "Sun, Jul 26")
+        #expect(dateElement.accessibilityLabel == expectedDateLabel)
         #expect(dateElement.accessibilityHint == "Double tap to choose a date.")
         #expect(!dateElement.accessibilityLabel.contains("4h 30m"))
         #expect(!durationElement.isInteractive)

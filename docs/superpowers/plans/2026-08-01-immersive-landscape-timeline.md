@@ -4,7 +4,7 @@
 
 **Goal:** Give the sleep timeline substantially more vertical room on landscape phones at both regular and accessibility Dynamic Type sizes while preserving all night-navigation behavior.
 
-**Architecture:** Resolve a small, testable layout mode from SwiftUI's vertical size class at the screen-composition boundary. Reuse `NightHeaderView` in a new overlay presentation, place it over the timeline in compact-height layouts, and retain the existing standalone portrait presentation. The canvas and its geometry remain unchanged; only its parent composition changes.
+**Architecture:** Resolve a small, testable layout mode from SwiftUI's vertical size class at the screen-composition boundary. In compact-height layouts, place a date-picker button and separate duration label in the principal toolbar while keeping previous/next arrows at the canvas edges; retain the existing standalone portrait header. The canvas and its geometry remain unchanged; only its parent composition changes.
 
 **Tech Stack:** Swift 6, SwiftUI, Swift Testing (`Testing`), UIKit-hosted composition rendering, XcodeGen-managed iOS 26 project.
 
