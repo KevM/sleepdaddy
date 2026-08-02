@@ -9,6 +9,18 @@ enum SelectedNightLayoutMode: Equatable {
     }
 }
 
+/// Reports the layout mode from a rendered timeline to ancestor composition tests.
+struct SelectedNightTimelineLayoutPreferenceKey: PreferenceKey {
+    static let defaultValue: SelectedNightLayoutMode? = nil
+
+    static func reduce(
+        value: inout SelectedNightLayoutMode?,
+        nextValue: () -> SelectedNightLayoutMode?
+    ) {
+        value = nextValue() ?? value
+    }
+}
+
 public struct ContentView: View {
     @State private var model: NightBrowserModel
     @Environment(\.verticalSizeClass) private var verticalSizeClass

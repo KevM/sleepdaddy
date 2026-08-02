@@ -153,6 +153,10 @@ public struct SelectedNightDetailView: View {
             }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .preference(
+            key: SelectedNightTimelineLayoutPreferenceKey.self,
+            value: layoutMode
+        )
         .padding(.horizontal, 16)
     }
 

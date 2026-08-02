@@ -14,6 +14,24 @@ private final class DelayedEmptySleepStore: HealthKitSleepStoreProtocol, @unchec
     }
 }
 
+@MainActor
+private final class TimelineLayoutModeRecorder {
+    var mode: SelectedNightLayoutMode?
+}
+
+private struct TimelineLayoutModeCaptureView: UIViewRepresentable {
+    let mode: SelectedNightLayoutMode?
+    let recorder: TimelineLayoutModeRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.mode = mode
+    }
+}
+
 /// Composition tests for the timeline views.
 ///
 /// These deliberately do *not* compare against reference PNGs. Pixel-exact baselines went
@@ -408,10 +426,22 @@ struct SnapshotTests {
         named name: String,
         width: CGFloat,
         height: CGFloat,
+        expectedTimelineLayoutMode: SelectedNightLayoutMode? = nil,
         isReady: @MainActor () -> Bool
     ) async throws {
         let size = CGSize(width: width, height: height)
-        let controller = UIHostingController(rootView: view)
+        let layoutModeRecorder = TimelineLayoutModeRecorder()
+        let controller = UIHostingController(
+            rootView: view.overlayPreferenceValue(
+                SelectedNightTimelineLayoutPreferenceKey.self
+            ) { layoutMode in
+                TimelineLayoutModeCaptureView(
+                    mode: layoutMode,
+                    recorder: layoutModeRecorder
+                )
+                .frame(width: 0, height: 0)
+            }
+        )
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first else {
@@ -432,6 +462,16 @@ struct SnapshotTests {
         #expect(isReady(), "\(name): Hosted content did not reach its expected state")
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
+        try await Task.sleep(for: .milliseconds(10))
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+
+        if let expectedTimelineLayoutMode {
+            #expect(
+                layoutModeRecorder.mode == expectedTimelineLayoutMode,
+                "\(name): Expected timeline layout \(expectedTimelineLayoutMode), got \(String(describing: layoutModeRecorder.mode))"
+            )
+        }
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 2.0
@@ -512,6 +552,7 @@ struct SnapshotTests {
             named: "loaded landscape",
             width: 852,
             height: 393,
+            expectedTimelineLayoutMode: .immersiveLandscape,
             isReady: { model.appState == .loaded }
         )
     }
@@ -529,6 +570,7 @@ struct SnapshotTests {
             named: "loaded landscape accessibility",
             width: 852,
             height: 393,
+            expectedTimelineLayoutMode: .immersiveLandscape,
             isReady: { model.appState == .loaded }
         )
     }
