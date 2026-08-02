@@ -267,7 +267,7 @@ struct SnapshotTests {
         )
     }
 
-    @Test @MainActor func landscapeToolbarSeparatesDateAndDuration() async throws {
+    @Test @MainActor func landscapeToolbarBracketsDateWithNavigationAndSeparatesDuration() async throws {
         let locale = Locale(identifier: "en_US")
         let timeZone = TimeZone(secondsFromGMT: -12 * 3600)!
         let night = makeFixtureNight()
@@ -280,6 +280,10 @@ struct SnapshotTests {
         let toolbar = LandscapeNightToolbarView(
             night: night,
             dateRange: nil,
+            canGoPrevious: true,
+            canGoNext: false,
+            onPrevious: {},
+            onNext: {},
             onSelectDate: { _ in }
         )
         .environment(\.locale, locale)
@@ -306,7 +310,7 @@ struct SnapshotTests {
         window.isHidden = false
         controller.view.frame = window.bounds
         controller.view.layoutIfNeeded()
-        for _ in 0..<100 where recorder.landscapeToolbarElements.count != 2 {
+        for _ in 0..<100 where recorder.landscapeToolbarElements.count != 4 {
             try await Task.sleep(for: .milliseconds(10))
         }
         controller.view.layoutIfNeeded()
@@ -314,10 +318,25 @@ struct SnapshotTests {
         let dateElement = try #require(
             recorder.landscapeToolbarElements.first { $0.role == .datePicker }
         )
+        let previousElement = try #require(
+            recorder.landscapeToolbarElements.first { $0.role == .previousNight }
+        )
+        let nextElement = try #require(
+            recorder.landscapeToolbarElements.first { $0.role == .nextNight }
+        )
         let durationElement = try #require(
             recorder.landscapeToolbarElements.first { $0.role == .duration }
         )
-        #expect(recorder.landscapeToolbarElements.count == 2)
+        #expect(recorder.landscapeToolbarElements.map(\.role) == [
+            .previousNight,
+            .datePicker,
+            .nextNight,
+            .duration
+        ])
+        #expect(previousElement.isInteractive)
+        #expect(previousElement.accessibilityLabel == "Previous night")
+        #expect(!nextElement.isInteractive)
+        #expect(nextElement.accessibilityLabel == "Next night")
         #expect(dateElement.isInteractive)
         #expect(dateElement.accessibilityLabel == expectedDateLabel)
         #expect(dateElement.accessibilityHint == "Double tap to choose a date.")
@@ -875,7 +894,7 @@ struct SnapshotTests {
         )
     }
 
-    @Test @MainActor func immersiveEmptyNightUsesEdgeNavigation() async throws {
+    @Test @MainActor func immersiveEmptyNightUsesLandscapeToolbar() async throws {
         var fixtureCalendar = Calendar(identifier: .gregorian)
         fixtureCalendar.timeZone = .current
         let now = fixtureCalendar.date(

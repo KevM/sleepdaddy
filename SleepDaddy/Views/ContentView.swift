@@ -177,6 +177,10 @@ public struct ContentView: View {
                         LandscapeNightToolbarView(
                             night: night,
                             dateRange: selectedDateRange,
+                            canGoPrevious: model.canSelectPreviousNight,
+                            canGoNext: model.canSelectNextNight,
+                            onPrevious: model.selectPreviousNight,
+                            onNext: model.selectNextNight,
                             onSelectDate: model.selectNight
                         )
                     }

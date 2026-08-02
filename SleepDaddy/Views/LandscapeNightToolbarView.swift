@@ -2,7 +2,9 @@ import SwiftUI
 
 struct LandscapeNightToolbarSemanticElement: Equatable, Sendable {
     enum Role: Equatable, Sendable {
+        case previousNight
         case datePicker
+        case nextNight
         case duration
     }
 
@@ -34,6 +36,10 @@ struct LandscapeNightToolbarPresencePreferenceKey: PreferenceKey {
 struct LandscapeNightToolbarView: View {
     let night: AssembledNight
     let dateRange: ClosedRange<Date>?
+    let canGoPrevious: Bool
+    let canGoNext: Bool
+    let onPrevious: () -> Void
+    let onNext: () -> Void
     let onSelectDate: (Date) -> Void
 
     @Environment(\.locale) private var locale
@@ -70,6 +76,19 @@ struct LandscapeNightToolbarView: View {
         )
     }
 
+    private func navigationSemanticElement(
+        role: LandscapeNightToolbarSemanticElement.Role,
+        label: String,
+        isEnabled: Bool
+    ) -> LandscapeNightToolbarSemanticElement {
+        LandscapeNightToolbarSemanticElement(
+            role: role,
+            accessibilityLabel: label,
+            accessibilityHint: "Switches to the \(label.lowercased()).",
+            isInteractive: isEnabled
+        )
+    }
+
     @ViewBuilder
     private var datePickerContent: some View {
         let selection = Binding(
@@ -97,28 +116,50 @@ struct LandscapeNightToolbarView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Button {
-                showingDatePicker = true
-            } label: {
-                HStack(spacing: 4) {
-                    Text(formattedDate)
-                        .font(.headline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                    Image(systemName: "chevron.down")
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.secondary)
+            HStack(spacing: 0) {
+                navigationButton(
+                    systemName: "chevron.left",
+                    semanticElement: navigationSemanticElement(
+                        role: .previousNight,
+                        label: "Previous night",
+                        isEnabled: canGoPrevious
+                    ),
+                    action: onPrevious
+                )
+
+                Button {
+                    showingDatePicker = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(formattedDate)
+                            .font(.headline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+                    }
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
+                .layoutPriority(1)
+                .accessibilityLabel(dateSemanticElement.accessibilityLabel)
+                .accessibilityHint(dateSemanticElement.accessibilityHint ?? "")
+                .preference(
+                    key: LandscapeNightToolbarSemanticElementsPreferenceKey.self,
+                    value: [dateSemanticElement]
+                )
+
+                navigationButton(
+                    systemName: "chevron.right",
+                    semanticElement: navigationSemanticElement(
+                        role: .nextNight,
+                        label: "Next night",
+                        isEnabled: canGoNext
+                    ),
+                    action: onNext
+                )
             }
-            .layoutPriority(1)
-            .accessibilityLabel(dateSemanticElement.accessibilityLabel)
-            .accessibilityHint(dateSemanticElement.accessibilityHint ?? "")
-            .preference(
-                key: LandscapeNightToolbarSemanticElementsPreferenceKey.self,
-                value: [dateSemanticElement]
-            )
 
             Text(formattedDuration)
                 .font(.subheadline)
@@ -152,5 +193,25 @@ struct LandscapeNightToolbarView: View {
             }
             .presentationDetents([.medium])
         }
+    }
+
+    private func navigationButton(
+        systemName: String,
+        semanticElement: LandscapeNightToolbarSemanticElement,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .disabled(!semanticElement.isInteractive)
+        .accessibilityLabel(semanticElement.accessibilityLabel)
+        .accessibilityHint(semanticElement.accessibilityHint ?? "")
+        .preference(
+            key: LandscapeNightToolbarSemanticElementsPreferenceKey.self,
+            value: [semanticElement]
+        )
     }
 }

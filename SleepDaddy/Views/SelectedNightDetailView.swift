@@ -95,10 +95,6 @@ public struct SelectedNightDetailView: View {
                                     value: .bounds,
                                     transform: { $0 }
                                 )
-                                .overlay {
-                                    timelineNavigationControls
-                                        .padding(.horizontal, 16)
-                                }
 
                             contextNavigator(night: night)
                         }
@@ -107,10 +103,6 @@ public struct SelectedNightDetailView: View {
                 }
             } else {
                 emptyNightState
-                    .overlay {
-                        timelineNavigationControls
-                            .padding(.horizontal, 16)
-                }
             }
         } else {
             VStack(spacing: 12) {
@@ -118,15 +110,6 @@ public struct SelectedNightDetailView: View {
                     .frame(height: 240)
             }
         }
-    }
-
-    private var timelineNavigationControls: some View {
-        TimelineNightNavigationControls(
-            canGoPrevious: model.canSelectPreviousNight,
-            canGoNext: model.canSelectNextNight,
-            onPrevious: model.selectPreviousNight,
-            onNext: model.selectNextNight
-        )
     }
 
     private func timelineCanvas(night: AssembledNight) -> some View {
