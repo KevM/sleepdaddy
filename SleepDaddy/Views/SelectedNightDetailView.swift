@@ -17,12 +17,6 @@ public struct SelectedNightDetailView: View {
         self.layoutMode = layoutMode
     }
 
-    nonisolated static func immersiveTimelineHeight(
-        availableHeight: CGFloat
-    ) -> CGFloat {
-        max(220, availableHeight)
-    }
-
     public var body: some View {
         Group {
             switch layoutMode {
@@ -50,11 +44,6 @@ public struct SelectedNightDetailView: View {
         if let night = model.selectedAssembledNight {
             if night.hasSleepData {
                 timelineCanvas(night: night)
-                    .anchorPreference(
-                        key: SelectedNightTimelineBoundsPreferenceKey.self,
-                        value: .bounds,
-                        transform: { $0 }
-                    )
             } else {
                 emptyNightState
             }
@@ -70,14 +59,7 @@ public struct SelectedNightDetailView: View {
             if night.hasSleepData {
                 GeometryReader { proxy in
                     timelineCanvas(night: night)
-                        .frame(height: Self.immersiveTimelineHeight(
-                            availableHeight: proxy.size.height
-                        ))
-                        .anchorPreference(
-                            key: SelectedNightTimelineBoundsPreferenceKey.self,
-                            value: .bounds,
-                            transform: { $0 }
-                        )
+                        .frame(height: proxy.size.height)
                 }
             } else {
                 emptyNightState
@@ -104,10 +86,6 @@ public struct SelectedNightDetailView: View {
             }
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .preference(
-            key: SelectedNightTimelineLayoutPreferenceKey.self,
-            value: layoutMode
-        )
         .padding(.horizontal, 16)
     }
 

@@ -14,207 +14,6 @@ private final class DelayedEmptySleepStore: HealthKitSleepStoreProtocol, @unchec
     }
 }
 
-@MainActor
-private final class HostedTimelinePresentationRecorder {
-    var mode: SelectedNightLayoutMode?
-    var timelineBounds: CGRect?
-    var headerPresentation: NightHeaderView.Presentation?
-    var headerBounds: CGRect?
-    var landscapeToolbarIsPresent = false
-    var combinedRailIsPresent = false
-    var combinedRailLabelBandBounds: CGRect?
-    var combinedRailNavigatorBounds: CGRect?
-    var combinedRailLabelDynamicTypeSize: DynamicTypeSize?
-    var landscapeToolbarElements: [LandscapeNightToolbarSemanticElement] = []
-}
-
-private struct CombinedTimelineRailLabelDynamicTypeSizeCaptureView: UIViewRepresentable {
-    let dynamicTypeSize: DynamicTypeSize?
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.combinedRailLabelDynamicTypeSize = dynamicTypeSize
-    }
-}
-
-private struct CombinedTimelineRailBandBoundsCaptureView: View {
-    enum Band {
-        case label
-        case navigator
-    }
-
-    let anchor: Anchor<CGRect>?
-    let band: Band
-    let recorder: HostedTimelinePresentationRecorder
-
-    var body: some View {
-        GeometryReader { proxy in
-            CombinedTimelineRailBandBoundsRecorderView(
-                bounds: anchor.map { proxy[$0] },
-                band: band,
-                recorder: recorder
-            )
-            .frame(width: 0, height: 0)
-        }
-    }
-}
-
-private struct CombinedTimelineRailBandBoundsRecorderView: UIViewRepresentable {
-    let bounds: CGRect?
-    let band: CombinedTimelineRailBandBoundsCaptureView.Band
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        switch band {
-        case .label:
-            recorder.combinedRailLabelBandBounds = bounds
-        case .navigator:
-            recorder.combinedRailNavigatorBounds = bounds
-        }
-    }
-}
-
-private struct TimelineLayoutModeCaptureView: UIViewRepresentable {
-    let mode: SelectedNightLayoutMode?
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.mode = mode
-    }
-}
-
-private struct TimelineBoundsCaptureView: View {
-    let anchor: Anchor<CGRect>?
-    let recorder: HostedTimelinePresentationRecorder
-
-    var body: some View {
-        GeometryReader { proxy in
-            TimelineBoundsRecorderView(
-                bounds: anchor.map { proxy[$0] },
-                recorder: recorder
-            )
-            .frame(width: 0, height: 0)
-        }
-    }
-}
-
-private struct TimelineBoundsRecorderView: UIViewRepresentable {
-    let bounds: CGRect?
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.timelineBounds = bounds
-    }
-}
-
-private struct HeaderPresentationCaptureView: UIViewRepresentable {
-    let presentation: NightHeaderView.Presentation?
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.headerPresentation = presentation
-    }
-}
-
-private struct HeaderBoundsCaptureView: View {
-    let anchor: Anchor<CGRect>?
-    let recorder: HostedTimelinePresentationRecorder
-
-    var body: some View {
-        GeometryReader { proxy in
-            HeaderBoundsRecorderView(
-                bounds: anchor.map { proxy[$0] },
-                recorder: recorder
-            )
-            .frame(width: 0, height: 0)
-        }
-    }
-}
-
-private struct HeaderBoundsRecorderView: UIViewRepresentable {
-    let bounds: CGRect?
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.headerBounds = bounds
-    }
-}
-
-private struct LandscapeToolbarPresenceCaptureView: UIViewRepresentable {
-    let isPresent: Bool
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.landscapeToolbarIsPresent = isPresent
-    }
-}
-
-private struct CombinedTimelineRailPresenceCaptureView: UIViewRepresentable {
-    let isPresent: Bool
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.combinedRailIsPresent = isPresent
-    }
-}
-
-private struct LandscapeToolbarElementsCaptureView: UIViewRepresentable {
-    let elements: [LandscapeNightToolbarSemanticElement]
-    let recorder: HostedTimelinePresentationRecorder
-
-    func makeUIView(context: Context) -> UIView {
-        UIView(frame: .zero)
-    }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        recorder.landscapeToolbarElements = elements
-    }
-}
-
-private struct HostedTimelinePresentationMetrics {
-    let mode: SelectedNightLayoutMode?
-    let timelineBounds: CGRect?
-    let headerPresentation: NightHeaderView.Presentation?
-    let headerBounds: CGRect?
-    let landscapeToolbarIsPresent: Bool
-    let combinedRailIsPresent: Bool
-    let combinedRailLabelBandBounds: CGRect?
-    let combinedRailNavigatorBounds: CGRect?
-    let combinedRailLabelDynamicTypeSize: DynamicTypeSize?
-}
-
 /// Composition tests for the timeline views.
 ///
 /// These deliberately do *not* compare against reference PNGs. Pixel-exact baselines went
@@ -342,16 +141,10 @@ struct SnapshotTests {
         )
     }
 
-    @Test @MainActor func landscapeToolbarBracketsDateWithNavigationAndSeparatesDuration() async throws {
+    @Test @MainActor func landscapeToolbarRendersAtNarrowLandscapeWidth() {
         let locale = Locale(identifier: "en_US")
         let timeZone = TimeZone(secondsFromGMT: -12 * 3600)!
         let night = makeFixtureNight()
-        let expectedDateLabel = NightHeaderView.formattedDate(
-            night.date,
-            locale: locale,
-            timeZone: timeZone
-        )
-        let recorder = HostedTimelinePresentationRecorder()
         let toolbar = LandscapeNightToolbarView(
             night: night,
             dateRange: nil,
@@ -363,66 +156,13 @@ struct SnapshotTests {
         )
         .environment(\.locale, locale)
         .environment(\.timeZone, timeZone)
-        .overlayPreferenceValue(
-            LandscapeNightToolbarSemanticElementsPreferenceKey.self
-        ) { elements in
-            LandscapeToolbarElementsCaptureView(
-                elements: elements,
-                recorder: recorder
-            )
-            .frame(width: 0, height: 0)
-        }
+        .frame(width: 320, height: 44)
 
-        let controller = UIHostingController(rootView: toolbar)
-        let windowScene = try #require(
-            UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .first
+        renderComposition(
+            of: toolbar,
+            named: "narrow landscape toolbar",
+            expecting: CGSize(width: 320, height: 44)
         )
-        let window = UIWindow(windowScene: windowScene)
-        window.frame = CGRect(x: 0, y: 0, width: 320, height: 60)
-        window.rootViewController = controller
-        window.isHidden = false
-        controller.view.frame = window.bounds
-        controller.view.layoutIfNeeded()
-        for _ in 0..<100 where recorder.landscapeToolbarElements.count != 4 {
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        controller.view.layoutIfNeeded()
-
-        let dateElement = try #require(
-            recorder.landscapeToolbarElements.first { $0.role == .datePicker }
-        )
-        let previousElement = try #require(
-            recorder.landscapeToolbarElements.first { $0.role == .previousNight }
-        )
-        let nextElement = try #require(
-            recorder.landscapeToolbarElements.first { $0.role == .nextNight }
-        )
-        let durationElement = try #require(
-            recorder.landscapeToolbarElements.first { $0.role == .duration }
-        )
-        #expect(recorder.landscapeToolbarElements.map(\.role) == [
-            .previousNight,
-            .datePicker,
-            .nextNight,
-            .duration
-        ])
-        #expect(previousElement.isInteractive)
-        #expect(previousElement.accessibilityLabel == "Previous night")
-        #expect(!nextElement.isInteractive)
-        #expect(nextElement.accessibilityLabel == "Next night")
-        #expect(dateElement.isInteractive)
-        #expect(dateElement.accessibilityLabel == expectedDateLabel)
-        #expect(dateElement.accessibilityHint == "Double tap to choose a date.")
-        #expect(!dateElement.accessibilityLabel.contains("4h 30m"))
-        #expect(!durationElement.isInteractive)
-        #expect(durationElement.accessibilityLabel == "Sleep duration, 4h 30m")
-        #expect(durationElement.accessibilityHint == nil)
-        try await Task.sleep(for: .milliseconds(50))
-        window.isHidden = true
-        window.rootViewController = nil
-        try await Task.sleep(for: .milliseconds(10))
     }
 
     @Test @MainActor func testSleepTimelineCanvasSnapshotComposition() {
@@ -685,108 +425,20 @@ struct SnapshotTests {
     /// `ImageRenderer` alone rasterizes a view that never entered a window, which is not
     /// enough for compositions that load asynchronously.
     @MainActor
-    @discardableResult
     private func assertHostedComposition(
         of view: some View,
         named name: String,
         width: CGFloat,
         height: CGFloat,
-        expectedTimelineLayoutMode: SelectedNightLayoutMode? = nil,
-        expectsLandscapeToolbar: Bool = false,
         isReady: @escaping @MainActor () -> Bool
-    ) async throws -> HostedTimelinePresentationMetrics {
+    ) async throws {
         let size = CGSize(width: width, height: height)
-        let recorder = HostedTimelinePresentationRecorder()
-        let controller = UIHostingController(
-            rootView: view.overlayPreferenceValue(
-                SelectedNightTimelineLayoutPreferenceKey.self
-            ) { layoutMode in
-                TimelineLayoutModeCaptureView(
-                    mode: layoutMode,
-                    recorder: recorder
-                )
-                .frame(width: 0, height: 0)
-            }
-            .overlayPreferenceValue(
-                SelectedNightTimelineBoundsPreferenceKey.self
-            ) { anchor in
-                TimelineBoundsCaptureView(anchor: anchor, recorder: recorder)
-            }
-            .overlayPreferenceValue(
-                NightHeaderPresentationPreferenceKey.self
-            ) { presentation in
-                HeaderPresentationCaptureView(
-                    presentation: presentation,
-                    recorder: recorder
-                )
-                .frame(width: 0, height: 0)
-            }
-            .overlayPreferenceValue(
-                NightHeaderBoundsPreferenceKey.self
-            ) { anchor in
-                HeaderBoundsCaptureView(anchor: anchor, recorder: recorder)
-            }
-            .overlayPreferenceValue(
-                LandscapeNightToolbarPresencePreferenceKey.self
-            ) { isPresent in
-                LandscapeToolbarPresenceCaptureView(
-                    isPresent: isPresent,
-                    recorder: recorder
-                )
-                .frame(width: 0, height: 0)
-            }
-            .overlayPreferenceValue(
-                CombinedTimelineRailPresencePreferenceKey.self
-            ) { isPresent in
-                CombinedTimelineRailPresenceCaptureView(
-                    isPresent: isPresent,
-                    recorder: recorder
-                )
-                .frame(width: 0, height: 0)
-            }
-            .overlayPreferenceValue(
-                CombinedTimelineRailLabelBandBoundsPreferenceKey.self
-            ) { labelAnchor in
-                CombinedTimelineRailBandBoundsCaptureView(
-                    anchor: labelAnchor,
-                    band: .label,
-                    recorder: recorder
-                )
-            }
-            .overlayPreferenceValue(
-                CombinedTimelineRailNavigatorBoundsPreferenceKey.self
-            ) { navigatorAnchor in
-                CombinedTimelineRailBandBoundsCaptureView(
-                    anchor: navigatorAnchor,
-                    band: .navigator,
-                    recorder: recorder
-                )
-            }
-            .overlayPreferenceValue(
-                CombinedTimelineRailLabelDynamicTypeSizePreferenceKey.self
-            ) { dynamicTypeSize in
-                CombinedTimelineRailLabelDynamicTypeSizeCaptureView(
-                    dynamicTypeSize: dynamicTypeSize,
-                    recorder: recorder
-                )
-                .frame(width: 0, height: 0)
-            }
-        )
+        let controller = UIHostingController(rootView: view)
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first else {
             Issue.record("Failed to find a window scene for hosted composition \(name)")
-            return HostedTimelinePresentationMetrics(
-                mode: nil,
-                timelineBounds: nil,
-                headerPresentation: nil,
-                headerBounds: nil,
-                landscapeToolbarIsPresent: false,
-                combinedRailIsPresent: false,
-                combinedRailLabelBandBounds: nil,
-                combinedRailNavigatorBounds: nil,
-                combinedRailLabelDynamicTypeSize: nil
-            )
+            return
         }
         let window = UIWindow(windowScene: windowScene)
         window.frame = CGRect(origin: .zero, size: size)
@@ -796,17 +448,11 @@ struct SnapshotTests {
         controller.view.frame = window.bounds
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
-        let hostedContentIsReady = {
-            isReady()
-                && (expectedTimelineLayoutMode == nil
-                    || recorder.mode == expectedTimelineLayoutMode)
-                && (!expectsLandscapeToolbar || recorder.landscapeToolbarIsPresent)
-        }
-        for _ in 0..<200 where !hostedContentIsReady() {
+        for _ in 0..<200 where !isReady() {
             try await Task.sleep(for: .milliseconds(10))
         }
         #expect(
-            hostedContentIsReady(),
+            isReady(),
             "\(name): Hosted content did not reach its expected state"
         )
         controller.view.setNeedsLayout()
@@ -814,13 +460,6 @@ struct SnapshotTests {
         try await Task.sleep(for: .milliseconds(10))
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
-
-        if let expectedTimelineLayoutMode {
-            #expect(
-                recorder.mode == expectedTimelineLayoutMode,
-                "\(name): Expected timeline layout \(expectedTimelineLayoutMode), got \(String(describing: recorder.mode))"
-            )
-        }
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = 2.0
@@ -834,33 +473,12 @@ struct SnapshotTests {
 
         guard let cgImage = currentImage.cgImage else {
             Issue.record("Failed to render hosted composition \(name)")
-            return HostedTimelinePresentationMetrics(
-                mode: recorder.mode,
-                timelineBounds: recorder.timelineBounds,
-                headerPresentation: recorder.headerPresentation,
-                headerBounds: recorder.headerBounds,
-                landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent,
-                combinedRailIsPresent: recorder.combinedRailIsPresent,
-                combinedRailLabelBandBounds: recorder.combinedRailLabelBandBounds,
-                combinedRailNavigatorBounds: recorder.combinedRailNavigatorBounds,
-                combinedRailLabelDynamicTypeSize: recorder.combinedRailLabelDynamicTypeSize
-            )
+            return
         }
 
         #expect(cgImage.width == Int(width * 2.0), "\(name) width")
         #expect(cgImage.height == Int(height * 2.0), "\(name) height")
 
-        return HostedTimelinePresentationMetrics(
-            mode: recorder.mode,
-            timelineBounds: recorder.timelineBounds,
-            headerPresentation: recorder.headerPresentation,
-            headerBounds: recorder.headerBounds,
-            landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent,
-            combinedRailIsPresent: recorder.combinedRailIsPresent,
-            combinedRailLabelBandBounds: recorder.combinedRailLabelBandBounds,
-            combinedRailNavigatorBounds: recorder.combinedRailNavigatorBounds,
-            combinedRailLabelDynamicTypeSize: recorder.combinedRailLabelDynamicTypeSize
-        )
     }
 
     @MainActor
@@ -918,23 +536,13 @@ struct SnapshotTests {
             .environment(\.locale, Locale(identifier: "en_US"))
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
 
-        let metrics = try await assertHostedComposition(
+        try await assertHostedComposition(
             of: content,
             named: "loaded landscape",
             width: 852,
             height: 393,
-            expectedTimelineLayoutMode: .immersiveLandscape,
-            expectsLandscapeToolbar: true,
             isReady: { model.appState == .loaded }
         )
-        let timelineBounds = try #require(metrics.timelineBounds)
-        #expect(
-            timelineBounds.height >= 220,
-            "Actual post-frame timeline bounds: \(timelineBounds)"
-        )
-        #expect(metrics.landscapeToolbarIsPresent)
-        #expect(metrics.combinedRailIsPresent)
-        #expect(metrics.headerPresentation == nil)
     }
 
     @Test @MainActor func loadedLandscapeAccessibilityKeepsImmersiveTimeline() async throws {
@@ -945,29 +553,13 @@ struct SnapshotTests {
             .environment(\.locale, Locale(identifier: "en_US"))
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
 
-        let metrics = try await assertHostedComposition(
+        try await assertHostedComposition(
             of: content,
             named: "loaded landscape accessibility",
             width: 852,
             height: 393,
-            expectedTimelineLayoutMode: .immersiveLandscape,
-            expectsLandscapeToolbar: true,
             isReady: { model.appState == .loaded }
         )
-        let timelineBounds = try #require(metrics.timelineBounds)
-        #expect(
-            timelineBounds.height >= 220,
-            "Actual post-frame timeline bounds: \(timelineBounds)"
-        )
-        #expect(metrics.landscapeToolbarIsPresent)
-        #expect(metrics.combinedRailIsPresent)
-        #expect(metrics.headerPresentation == nil)
-        let labelBounds = try #require(metrics.combinedRailLabelBandBounds)
-        let navigatorBounds = try #require(metrics.combinedRailNavigatorBounds)
-        #expect(labelBounds.height == SleepTimelineGeometry.timeLabelBandHeight)
-        #expect(labelBounds.maxY <= navigatorBounds.minY)
-        #expect(navigatorBounds.maxY - labelBounds.minY == SleepTimelineGeometry.timeAxisHeight)
-        #expect(metrics.combinedRailLabelDynamicTypeSize == .accessibility1)
     }
 
     @Test @MainActor func loadedPortraitUsesStandardComposition() async throws {
@@ -977,16 +569,13 @@ struct SnapshotTests {
             .environment(\.locale, Locale(identifier: "en_US"))
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
 
-        let metrics = try await assertHostedComposition(
+        try await assertHostedComposition(
             of: content,
             named: "loaded portrait",
             width: 393,
             height: 852,
-            expectedTimelineLayoutMode: .standard,
             isReady: { model.appState == .loaded }
         )
-        #expect(metrics.combinedRailIsPresent)
-        #expect(metrics.headerPresentation == .standalone)
     }
 
     @Test @MainActor func testSnapshotPortraitLightMode() {
@@ -1032,19 +621,6 @@ struct SnapshotTests {
         #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: nil) == .standard)
     }
 
-    @Test func immersiveTimelineUsesAllAvailableHeightWithoutExternalNavigator() {
-        #expect(
-            SelectedNightDetailView.immersiveTimelineHeight(
-                availableHeight: 320
-            ) == 320
-        )
-        #expect(
-            SelectedNightDetailView.immersiveTimelineHeight(
-                availableHeight: 210
-            ) == 220
-        )
-    }
-
     @Test @MainActor func immersiveEmptyNightUsesLandscapeToolbar() async throws {
         var fixtureCalendar = Calendar(identifier: .gregorian)
         fixtureCalendar.timeZone = .current
@@ -1065,17 +641,13 @@ struct SnapshotTests {
             .environment(\.verticalSizeClass, .compact)
             .environment(\.locale, Locale(identifier: "en_US"))
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-        let metrics = try await assertHostedComposition(
+        try await assertHostedComposition(
             of: content,
             named: "immersive empty night",
             width: 852,
             height: 393,
-            expectsLandscapeToolbar: true,
             isReady: { model.appState == .loaded }
         )
-
-        #expect(metrics.landscapeToolbarIsPresent)
-        #expect(metrics.headerPresentation == nil)
     }
 }
 

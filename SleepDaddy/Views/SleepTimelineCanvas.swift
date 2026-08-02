@@ -13,6 +13,8 @@ extension EnvironmentValues {
 
 struct SleepTimelineCanvasVerticalLayout: Equatable, Sendable {
     let plotHeight: CGFloat
+    /// Geometry receives the full canvas height because its vertical calculations subtract
+    /// both the top padding and the combined rail; the rendered plot frame excludes the rail.
     let geometryHeight: CGFloat
 
     init(totalHeight: CGFloat) {
@@ -29,13 +31,13 @@ public struct SleepTimelineCanvas: View {
     let isInteractive: Bool
     let onSelectInterval: (NormalizedSleepInterval) -> Void
     let onUpdateViewport: (Date, Date) -> Void
-    let onUpdateLiveViewport: (TimelineViewport?) -> Void
 
     @State private var interaction: TimelineInteractionController
     @State private var gestureResetGeneration = 0
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.accessibilityReduceMotionOverride) private var overrideReduceMotion
     @Environment(\.timelineInteractionEnabled) private var timelineInteractionEnabled
+    @Environment(\.calendar) private var calendar
 
     private var reduceMotion: Bool {
         overrideReduceMotion ?? systemReduceMotion
@@ -48,8 +50,7 @@ public struct SleepTimelineCanvas: View {
         selectedIntervalID: String?,
         isInteractive: Bool = true,
         onSelectInterval: @escaping (NormalizedSleepInterval) -> Void = { _ in },
-        onUpdateViewport: @escaping (Date, Date) -> Void = { _, _ in },
-        onUpdateLiveViewport: @escaping (TimelineViewport?) -> Void = { _ in }
+        onUpdateViewport: @escaping (Date, Date) -> Void = { _, _ in }
     ) {
         self.night = night
         self.viewportStart = viewportStart
@@ -58,7 +59,6 @@ public struct SleepTimelineCanvas: View {
         self.isInteractive = isInteractive
         self.onSelectInterval = onSelectInterval
         self.onUpdateViewport = onUpdateViewport
-        self.onUpdateLiveViewport = onUpdateLiveViewport
 
         let initialViewport = TimelineViewport(normalizing: viewportStart, end: viewportEnd)
         _interaction = State(initialValue: TimelineInteractionController(viewport: initialViewport))
@@ -243,7 +243,7 @@ public struct SleepTimelineCanvas: View {
                             }
 
                             // 7. Time tick guidelines
-                            let ticks = cGeom.timeTicks()
+                            let ticks = cGeom.timeTicks(calendar: calendar)
 
                             for tick in ticks {
                                 var tickPath = Path()
@@ -264,7 +264,6 @@ public struct SleepTimelineCanvas: View {
                                     withTransaction(transaction) {
                                         interaction.begin(viewport: TimelineViewport(normalizing: viewportStart, end: viewportEnd))
                                     }
-                                    onUpdateLiveViewport(interaction.liveViewport)
                                 },
                                 onPanChanged: { translationX in
                                     var transaction = Transaction(animation: nil)
@@ -272,7 +271,6 @@ public struct SleepTimelineCanvas: View {
                                     withTransaction(transaction) {
                                         interaction.updatePan(translationX: translationX, geometry: geom)
                                     }
-                                    onUpdateLiveViewport(interaction.liveViewport)
                                 },
                                 onPinchChanged: { scale, centroidX in
                                     var transaction = Transaction(animation: nil)
@@ -280,7 +278,6 @@ public struct SleepTimelineCanvas: View {
                                     withTransaction(transaction) {
                                         interaction.updateMagnification(scale, anchorX: centroidX, geometry: geom)
                                     }
-                                    onUpdateLiveViewport(interaction.liveViewport)
                                 },
                                 onInteractionEnded: { velocityX in
                                     let settled = interaction.settledViewport(
@@ -293,12 +290,10 @@ public struct SleepTimelineCanvas: View {
                                         transaction.disablesAnimations = true
                                         withTransaction(transaction) {
                                             onUpdateViewport(settled.start, settled.end)
-                                            onUpdateLiveViewport(nil)
                                         }
                                     } else {
                                         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
                                             onUpdateViewport(settled.start, settled.end)
-                                            onUpdateLiveViewport(nil)
                                         }
                                     }
                                 },
@@ -340,10 +335,6 @@ public struct SleepTimelineCanvas: View {
                     ) { newViewport in
                         onUpdateViewport(newViewport.start, newViewport.end)
                     }
-                    .preference(
-                        key: CombinedTimelineRailPresencePreferenceKey.self,
-                        value: true
-                    )
                 }
             }
         }
@@ -374,7 +365,6 @@ public struct SleepTimelineCanvas: View {
             if invalidateRecognizers {
                 gestureResetGeneration &+= 1
             }
-            onUpdateLiveViewport(nil)
         }
     }
 }

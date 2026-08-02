@@ -5,6 +5,11 @@ struct CombinedTimelineRailInteraction: Equatable, Sendable {
     let translationWidth: CGFloat
 }
 
+struct CombinedTimelineRailViewportUpdate: Equatable, Sendable {
+    let baseline: TimelineViewport
+    let viewport: TimelineViewport
+}
+
 struct CombinedTimelineRailAccessibilityPresentation: Equatable, Sendable {
     let supportsAdjustment: Bool
     let adjustmentHint: String?
@@ -48,40 +53,46 @@ struct CombinedTimelineRailLayout: Equatable, Sendable {
             height: SleepTimelineGeometry.navigatorTrackHeight
         )
     }
-}
 
-struct CombinedTimelineRailLabelDynamicTypeSizePreferenceKey: PreferenceKey {
-    static let defaultValue: DynamicTypeSize? = nil
-
-    static func reduce(value: inout DynamicTypeSize?, nextValue: () -> DynamicTypeSize?) {
-        value = nextValue() ?? value
-    }
-}
-
-private struct CombinedTimelineRailLabelDynamicTypeSizeReporter: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        Color.clear.preference(
-            key: CombinedTimelineRailLabelDynamicTypeSizePreferenceKey.self,
-            value: dynamicTypeSize
+    func viewportHandle(
+        for viewport: TimelineViewport,
+        geometry: SleepTimelineGeometry
+    ) -> CGRect {
+        viewportHandle(
+            fromX: geometry.navigatorXRatio(for: viewport.start) * width,
+            toX: geometry.navigatorXRatio(for: viewport.end) * width
         )
     }
-}
 
-struct CombinedTimelineRailLabelBandBoundsPreferenceKey: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
+    func updatedViewport(
+        for interaction: CombinedTimelineRailInteraction,
+        baseline: TimelineViewport?,
+        current: TimelineViewport,
+        geometry: SleepTimelineGeometry
+    ) -> CombinedTimelineRailViewportUpdate {
+        let resolvedBaseline: TimelineViewport
+        if let baseline {
+            resolvedBaseline = baseline
+        } else if viewportHandle(for: current, geometry: geometry).contains(
+            CGPoint(x: interaction.startX, y: SleepTimelineGeometry.navigatorTrackHeight / 2)
+        ) {
+            resolvedBaseline = current
+        } else {
+            resolvedBaseline = geometry.navigatorViewport(
+                current,
+                centeredAtX: interaction.startX,
+                navigatorWidth: width
+            )
+        }
 
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = nextValue() ?? value
-    }
-}
-
-struct CombinedTimelineRailNavigatorBoundsPreferenceKey: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
-
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = nextValue() ?? value
+        return CombinedTimelineRailViewportUpdate(
+            baseline: resolvedBaseline,
+            viewport: geometry.navigatorViewport(
+                resolvedBaseline,
+                translatedBy: interaction.translationWidth,
+                navigatorWidth: width
+            )
+        )
     }
 }
 
@@ -123,18 +134,10 @@ struct CombinedTimelineRail: View {
                 visibleTimeLabels(geometry: geometry)
                     .frame(height: SleepTimelineGeometry.timeLabelBandHeight)
                     .clipped()
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-                    .anchorPreference(
-                        key: CombinedTimelineRailLabelBandBoundsPreferenceKey.self,
-                        value: .bounds
-                    ) { $0 }
+                    .dynamicTypeSize(...DynamicTypeSize.large)
 
                 navigator(geometry: geometry, layout: layout)
                     .frame(maxHeight: .infinity)
-                    .anchorPreference(
-                        key: CombinedTimelineRailNavigatorBoundsPreferenceKey.self,
-                        value: .bounds
-                    ) { $0 }
             }
             .contentShape(Rectangle())
             .gesture(railGesture(geometry: geometry, layout: layout))
@@ -187,18 +190,13 @@ struct CombinedTimelineRail: View {
                 )
             }
         }
-        .overlay {
-            CombinedTimelineRailLabelDynamicTypeSizeReporter()
-        }
     }
 
     private func navigator(
         geometry: SleepTimelineGeometry,
         layout: CombinedTimelineRailLayout
     ) -> some View {
-        let viewportX1 = geometry.navigatorXRatio(for: viewport.start) * layout.width
-        let viewportX2 = geometry.navigatorXRatio(for: viewport.end) * layout.width
-        let handle = layout.viewportHandle(fromX: viewportX1, toX: viewportX2)
+        let handle = layout.viewportHandle(for: viewport, geometry: geometry)
 
         return ZStack(alignment: .leading) {
             Color.clear
@@ -233,34 +231,14 @@ struct CombinedTimelineRail: View {
                     isEnabled: isInteractive
                 ) else { return }
 
-                let viewportX1 = geometry.navigatorXRatio(for: viewport.start) * layout.width
-                let viewportX2 = geometry.navigatorXRatio(for: viewport.end) * layout.width
-                let handle = layout.viewportHandle(fromX: viewportX1, toX: viewportX2)
-                let baseline: TimelineViewport
-                if let baselineViewport {
-                    baseline = baselineViewport
-                } else if handle.contains(
-                    CGPoint(x: railInteraction.startX, y: handle.midY)
-                ) {
-                    baseline = viewport
-                    baselineViewport = viewport
-                } else {
-                    baseline = geometry.navigatorViewport(
-                        viewport,
-                        centeredAtX: railInteraction.startX,
-                        navigatorWidth: layout.width
-                    )
-                    onUpdateViewport(baseline)
-                    baselineViewport = baseline
-                }
-
-                onUpdateViewport(
-                    geometry.navigatorViewport(
-                        baseline,
-                        translatedBy: railInteraction.translationWidth,
-                        navigatorWidth: layout.width
-                    )
+                let update = layout.updatedViewport(
+                    for: railInteraction,
+                    baseline: baselineViewport,
+                    current: viewport,
+                    geometry: geometry
                 )
+                baselineViewport = update.baseline
+                onUpdateViewport(update.viewport)
             }
             .onEnded { _ in
                 baselineViewport = nil
@@ -274,24 +252,28 @@ struct CombinedTimelineRail: View {
         case .decrement: sign = -1
         @unknown default: return
         }
-        let geometry = SleepTimelineGeometry(
-            totalStart: night.timelineStart,
-            totalEnd: night.timelineEnd,
-            viewport: viewport,
-            canvasWidth: 1,
-            canvasHeight: SleepTimelineGeometry.timeAxisHeight
-        )
         onUpdateViewport(
-            geometry.clamped(viewport.shifted(by: viewport.duration * 0.1 * sign))
+            SleepTimelineGeometry.clamped(
+                viewport.shifted(by: viewport.duration * 0.1 * sign),
+                totalStart: night.timelineStart,
+                totalEnd: night.timelineEnd
+            )
         )
     }
 
     private func formatted(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = locale
-        formatter.timeZone = timeZone
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
+        Self.formattedTime(date, locale: locale, timeZone: timeZone)
+    }
+
+    static func formattedTime(
+        _ date: Date,
+        locale: Locale,
+        timeZone: TimeZone
+    ) -> String {
+        var style = Date.FormatStyle(date: .omitted, time: .shortened)
+            .locale(locale)
+        style.timeZone = timeZone
+        return date.formatted(style)
     }
 }
 

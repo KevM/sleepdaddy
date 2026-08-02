@@ -9,37 +9,6 @@ enum SelectedNightLayoutMode: Equatable {
     }
 }
 
-/// Reports the layout mode from a rendered timeline to ancestor composition tests.
-struct SelectedNightTimelineLayoutPreferenceKey: PreferenceKey {
-    static let defaultValue: SelectedNightLayoutMode? = nil
-
-    static func reduce(
-        value: inout SelectedNightLayoutMode?,
-        nextValue: () -> SelectedNightLayoutMode?
-    ) {
-        value = nextValue() ?? value
-    }
-}
-
-/// Reports the rendered timeline bounds after its composition-specific frame is applied.
-struct SelectedNightTimelineBoundsPreferenceKey: PreferenceKey {
-    static let defaultValue: Anchor<CGRect>? = nil
-
-    static func reduce(
-        value: inout Anchor<CGRect>?,
-        nextValue: () -> Anchor<CGRect>?
-    ) {
-        value = nextValue() ?? value
-    }
-}
-
-struct CombinedTimelineRailPresencePreferenceKey: PreferenceKey {
-    static let defaultValue = false
-    static func reduce(value: inout Bool, nextValue: () -> Bool) {
-        value = value || nextValue()
-    }
-}
-
 public struct ContentView: View {
     @State private var model: NightBrowserModel
     @Environment(\.verticalSizeClass) private var verticalSizeClass

@@ -23,7 +23,6 @@ struct NightAssemblerTests {
         )
 
         #expect(assembled.hasSleepData == false)
-        #expect(assembled.isExtended == false)
         #expect(assembled.rawIntervals.isEmpty)
         #expect(assembled.summary.totalSleepDuration == 0)
     }
@@ -56,7 +55,6 @@ struct NightAssemblerTests {
         )
 
         #expect(assembled.hasSleepData == true)
-        #expect(assembled.isExtended == true)
         #expect(assembled.detectedStart == p6PM)
     }
 

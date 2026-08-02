@@ -73,12 +73,7 @@ public struct TimelineGestureOverlay: UIViewRepresentable {
         public func gestureRecognizerShouldBegin(
             _ gestureRecognizer: UIGestureRecognizer
         ) -> Bool {
-            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else {
-                return true
-            }
-            return TimelinePanDirectionPolicy.shouldBegin(
-                velocity: pan.velocity(in: pan.view)
-            )
+            true
         }
 
         public func gestureRecognizer(

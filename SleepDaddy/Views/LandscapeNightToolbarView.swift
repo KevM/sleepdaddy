@@ -1,38 +1,5 @@
 import SwiftUI
 
-struct LandscapeNightToolbarSemanticElement: Equatable, Sendable {
-    enum Role: Equatable, Sendable {
-        case previousNight
-        case datePicker
-        case nextNight
-        case duration
-    }
-
-    let role: Role
-    let accessibilityLabel: String
-    let accessibilityHint: String?
-    let isInteractive: Bool
-}
-
-struct LandscapeNightToolbarSemanticElementsPreferenceKey: PreferenceKey {
-    static let defaultValue: [LandscapeNightToolbarSemanticElement] = []
-
-    static func reduce(
-        value: inout [LandscapeNightToolbarSemanticElement],
-        nextValue: () -> [LandscapeNightToolbarSemanticElement]
-    ) {
-        value.append(contentsOf: nextValue())
-    }
-}
-
-struct LandscapeNightToolbarPresencePreferenceKey: PreferenceKey {
-    static let defaultValue = false
-
-    static func reduce(value: inout Bool, nextValue: () -> Bool) {
-        value = value || nextValue()
-    }
-}
-
 struct LandscapeNightToolbarView: View {
     let night: AssembledNight
     let dateRange: ClosedRange<Date>?
@@ -56,37 +23,6 @@ struct LandscapeNightToolbarView: View {
 
     private var formattedDuration: String {
         NightHeaderView.formattedDuration(for: night)
-    }
-
-    private var dateSemanticElement: LandscapeNightToolbarSemanticElement {
-        LandscapeNightToolbarSemanticElement(
-            role: .datePicker,
-            accessibilityLabel: formattedDate,
-            accessibilityHint: "Double tap to choose a date.",
-            isInteractive: true
-        )
-    }
-
-    private var durationSemanticElement: LandscapeNightToolbarSemanticElement {
-        LandscapeNightToolbarSemanticElement(
-            role: .duration,
-            accessibilityLabel: "Sleep duration, \(formattedDuration)",
-            accessibilityHint: nil,
-            isInteractive: false
-        )
-    }
-
-    private func navigationSemanticElement(
-        role: LandscapeNightToolbarSemanticElement.Role,
-        label: String,
-        isEnabled: Bool
-    ) -> LandscapeNightToolbarSemanticElement {
-        LandscapeNightToolbarSemanticElement(
-            role: role,
-            accessibilityLabel: label,
-            accessibilityHint: "Switches to the \(label.lowercased()).",
-            isInteractive: isEnabled
-        )
     }
 
     @ViewBuilder
@@ -119,11 +55,9 @@ struct LandscapeNightToolbarView: View {
             HStack(spacing: 0) {
                 navigationButton(
                     systemName: "chevron.left",
-                    semanticElement: navigationSemanticElement(
-                        role: .previousNight,
-                        label: "Previous night",
-                        isEnabled: canGoPrevious
-                    ),
+                    accessibilityLabel: "Previous night",
+                    accessibilityHint: "Switches to the previous night",
+                    isEnabled: canGoPrevious,
                     action: onPrevious
                 )
 
@@ -135,6 +69,8 @@ struct LandscapeNightToolbarView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                         Image(systemName: "chevron.down")
                             .font(.caption2)
                             .fontWeight(.medium)
@@ -143,20 +79,14 @@ struct LandscapeNightToolbarView: View {
                     .contentShape(Rectangle())
                 }
                 .layoutPriority(1)
-                .accessibilityLabel(dateSemanticElement.accessibilityLabel)
-                .accessibilityHint(dateSemanticElement.accessibilityHint ?? "")
-                .preference(
-                    key: LandscapeNightToolbarSemanticElementsPreferenceKey.self,
-                    value: [dateSemanticElement]
-                )
+                .accessibilityLabel(formattedDate)
+                .accessibilityHint("Double tap to choose a date")
 
                 navigationButton(
                     systemName: "chevron.right",
-                    semanticElement: navigationSemanticElement(
-                        role: .nextNight,
-                        label: "Next night",
-                        isEnabled: canGoNext
-                    ),
+                    accessibilityLabel: "Next night",
+                    accessibilityHint: "Switches to the next night",
+                    isEnabled: canGoNext,
                     action: onNext
                 )
             }
@@ -165,17 +95,11 @@ struct LandscapeNightToolbarView: View {
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .foregroundColor(.accentColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(durationSemanticElement.accessibilityLabel)
-                .preference(
-                    key: LandscapeNightToolbarSemanticElementsPreferenceKey.self,
-                    value: [durationSemanticElement]
-                )
+                .accessibilityLabel("Sleep duration, \(formattedDuration)")
         }
-        .preference(
-            key: LandscapeNightToolbarPresencePreferenceKey.self,
-            value: true
-        )
         .sheet(isPresented: $showingDatePicker) {
             NavigationStack {
                 datePickerContent
@@ -197,7 +121,9 @@ struct LandscapeNightToolbarView: View {
 
     private func navigationButton(
         systemName: String,
-        semanticElement: LandscapeNightToolbarSemanticElement,
+        accessibilityLabel: String,
+        accessibilityHint: String,
+        isEnabled: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -206,12 +132,8 @@ struct LandscapeNightToolbarView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
-        .disabled(!semanticElement.isInteractive)
-        .accessibilityLabel(semanticElement.accessibilityLabel)
-        .accessibilityHint(semanticElement.accessibilityHint ?? "")
-        .preference(
-            key: LandscapeNightToolbarSemanticElementsPreferenceKey.self,
-            value: [semanticElement]
-        )
+        .disabled(!isEnabled)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(accessibilityHint)
     }
 }

@@ -18,14 +18,7 @@ private final class TestVelocityPanGestureRecognizer: UIPanGestureRecognizer {
 }
 
 struct TimelineGestureSessionTests {
-    @Test func panDirectionPolicyAcceptsOnlyPredominantlyHorizontalMotion() {
-        #expect(TimelinePanDirectionPolicy.shouldBegin(velocity: CGPoint(x: 80, y: 20)))
-        #expect(!TimelinePanDirectionPolicy.shouldBegin(velocity: CGPoint(x: 20, y: 80)))
-        #expect(!TimelinePanDirectionPolicy.shouldBegin(velocity: CGPoint(x: -80, y: 80)))
-        #expect(!TimelinePanDirectionPolicy.shouldBegin(velocity: .zero))
-    }
-
-    @Test @MainActor func gestureDelegateRejectsVerticalTimelinePanBeforeRecognition() {
+    @Test @MainActor func gestureDelegateAllowsTimelinePanRegardlessOfInitialVelocity() {
         let overlay = TimelineGestureOverlay(
             onInteractionBegan: {},
             onPanChanged: { _ in },
@@ -38,9 +31,12 @@ struct TimelineGestureSessionTests {
 
         #expect(coordinator.gestureRecognizerShouldBegin(
             TestVelocityPanGestureRecognizer(velocity: CGPoint(x: 20, y: 80))
-        ) == false)
+        ) == true)
         #expect(coordinator.gestureRecognizerShouldBegin(
             TestVelocityPanGestureRecognizer(velocity: CGPoint(x: 80, y: 20))
+        ) == true)
+        #expect(coordinator.gestureRecognizerShouldBegin(
+            TestVelocityPanGestureRecognizer(velocity: .zero)
         ) == true)
         #expect(coordinator.gestureRecognizerShouldBegin(UIPinchGestureRecognizer()) == true)
     }

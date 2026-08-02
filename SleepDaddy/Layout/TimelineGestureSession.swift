@@ -1,11 +1,5 @@
 import CoreGraphics
 
-enum TimelinePanDirectionPolicy {
-    static func shouldBegin(velocity: CGPoint) -> Bool {
-        abs(velocity.x) > abs(velocity.y)
-    }
-}
-
 enum TimelineGestureKind: Hashable, Sendable {
     case pan
     case pinch
