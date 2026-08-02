@@ -537,6 +537,27 @@ struct SnapshotTests {
         )
     }
 
+    @Test @MainActor func combinedTimelineRailRendersAtItsSpecifiedHeight() {
+        let night = makeFixtureNight()
+        let rail = CombinedTimelineRail(
+            night: night,
+            viewport: TimelineViewport(
+                normalizing: night.detectedStart,
+                end: night.detectedEnd
+            ),
+            onUpdateViewport: { _ in }
+        )
+        .frame(width: 700, height: SleepTimelineGeometry.timeAxisHeight)
+        .environment(\.locale, Locale(identifier: "en_US"))
+        .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+
+        renderComposition(
+            of: rail,
+            named: "combined timeline rail",
+            expecting: CGSize(width: 700, height: 44)
+        )
+    }
+
     private func makeFixtureNight() -> AssembledNight {
         let calendar = Calendar.current
         var components = DateComponents()

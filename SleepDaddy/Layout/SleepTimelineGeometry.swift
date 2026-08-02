@@ -116,7 +116,9 @@ public struct SleepTimelineGeometry: Sendable {
         }
     }
 
-    public static let timeAxisHeight: CGFloat = 28.0
+    public static let timeAxisHeight: CGFloat = 44.0
+    public static let timeLabelBandHeight: CGFloat = 20.0
+    public static let navigatorTrackHeight: CGFloat = 10.0
     public static let defaultDisplayedStages: [SleepStage] = [.awake, .rem, .core, .deep]
 
     public func usablePlotHeight() -> CGFloat {

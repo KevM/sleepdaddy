@@ -236,8 +236,8 @@ struct SleepTimelineGeometryTests {
 
         #expect(abs(rect.minX - 103.5) < 0.001)
         #expect(abs(rect.maxX - 200) < 0.001)
-        #expect(abs(rect.minY - 94) < 0.001)
-        #expect(abs(rect.maxY - 258) < 0.001)
+        #expect(abs(rect.minY - 88) < 0.001)
+        #expect(abs(rect.maxY - 244) < 0.001)
     }
 
     @Test func unspecifiedSleepUsesCenterOfSleepRowsForConnectors() {
@@ -279,10 +279,10 @@ struct SleepTimelineGeometryTests {
             .filter(\.isConnector)
 
         #expect(connectors.count == 2)
-        #expect(connectors[0].start == CGPoint(x: 35.83333333333333, y: 176))
-        #expect(connectors[0].end == CGPoint(x: 35.83333333333333, y: 176))
-        #expect(connectors[1].start == CGPoint(x: 64.66666666666666, y: 176))
-        #expect(connectors[1].end == CGPoint(x: 64.66666666666666, y: 112))
+        #expect(connectors[0].start == CGPoint(x: 35.83333333333333, y: 166))
+        #expect(connectors[0].end == CGPoint(x: 35.83333333333333, y: 166))
+        #expect(connectors[1].start == CGPoint(x: 64.66666666666666, y: 166))
+        #expect(connectors[1].end == CGPoint(x: 64.66666666666666, y: 106))
     }
 
     @Test func unspecifiedSleepCanBeHitAnywhereInsideSpanningBand() {
@@ -587,5 +587,11 @@ struct SleepTimelineGeometryTests {
         )
         #expect(moved.duration == viewport.duration)
         #expect(geometry.clamped(moved) == moved)
+    }
+
+    @Test func combinedTimelineRailUsesOneCompactTouchTarget() {
+        #expect(SleepTimelineGeometry.timeAxisHeight == 44)
+        #expect(SleepTimelineGeometry.timeLabelBandHeight == 20)
+        #expect(SleepTimelineGeometry.navigatorTrackHeight == 10)
     }
 }
