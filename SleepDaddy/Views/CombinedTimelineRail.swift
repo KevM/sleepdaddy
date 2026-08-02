@@ -262,22 +262,7 @@ struct CombinedTimelineRail: View {
     }
 
     private func formatted(_ date: Date) -> String {
-        Self.formattedTime(date, locale: locale, timeZone: timeZone)
-    }
-
-    private nonisolated static let timeStyle = Date.FormatStyle(
-        date: .omitted,
-        time: .shortened
-    )
-
-    nonisolated static func formattedTime(
-        _ date: Date,
-        locale: Locale,
-        timeZone: TimeZone
-    ) -> String {
-        var style = timeStyle.locale(locale)
-        style.timeZone = timeZone
-        return date.formatted(style)
+        AccessibilityHelpers.formattedClockTime(date, locale: locale, timeZone: timeZone)
     }
 }
 

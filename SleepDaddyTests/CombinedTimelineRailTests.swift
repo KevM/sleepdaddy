@@ -7,12 +7,12 @@ struct CombinedTimelineRailTests {
         let date = Date(timeIntervalSince1970: 12 * 60 * 60 + 5 * 60)
         let timeZone = TimeZone(secondsFromGMT: 0)!
 
-        let usTime = CombinedTimelineRail.formattedTime(
+        let usTime = AccessibilityHelpers.formattedClockTime(
             date,
             locale: Locale(identifier: "en_US"),
             timeZone: timeZone
         )
-        let ukTime = CombinedTimelineRail.formattedTime(
+        let ukTime = AccessibilityHelpers.formattedClockTime(
             date,
             locale: Locale(identifier: "en_GB"),
             timeZone: timeZone

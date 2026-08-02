@@ -15,18 +15,57 @@ public struct AccessibilityHelpers {
         }
     }
 
-    public static func formattedDateHeader(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .full
-        formatter.timeStyle = .none
-        return formatter.string(from: date)
+    /// "Fri, Jul 31, 2026".
+    ///
+    /// Abbreviated rather than `.full` ("Friday, July 31, 2026"), which cost the share card
+    /// most of a line. The year stays: a shared image outlives the moment it was taken, and
+    /// the reader has no other cue for which year the night belongs to.
+    public static func formattedDateHeader(
+        _ date: Date,
+        calendar: Calendar = .current,
+        locale: Locale = .current
+    ) -> String {
+        var style = Date.FormatStyle.dateTime
+            .weekday(.abbreviated)
+            .month(.abbreviated)
+            .day()
+            .year()
+            .locale(locale)
+        style.timeZone = calendar.timeZone
+        return date.formatted(style)
     }
 
-    public static func formattedTimeRange(start: Date, end: Date) -> String {
-        let formatter = DateIntervalFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: start, to: end)
+    private nonisolated static let clockStyle = Date.FormatStyle(
+        date: .omitted,
+        time: .shortened
+    )
+
+    /// The single clock-time formatter in the app. `CombinedTimelineRail` renders its axis
+    /// labels with this, and `formattedTimeRange` composes two of them.
+    public static func formattedClockTime(
+        _ date: Date,
+        locale: Locale = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        var style = clockStyle.locale(locale)
+        style.timeZone = timeZone
+        return date.formatted(style)
+    }
+
+    /// Two clock times joined by an en dash.
+    ///
+    /// Deliberately not `DateIntervalFormatter`: that type ignores `dateStyle = .none` and
+    /// prints both calendar dates once a range crosses midnight, which every night's sleep
+    /// does.
+    public static func formattedTimeRange(
+        start: Date,
+        end: Date,
+        locale: Locale = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        let from = formattedClockTime(start, locale: locale, timeZone: timeZone)
+        let to = formattedClockTime(end, locale: locale, timeZone: timeZone)
+        return "\(from) – \(to)"
     }
 }
 
