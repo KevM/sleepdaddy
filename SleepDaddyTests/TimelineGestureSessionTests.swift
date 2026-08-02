@@ -1,8 +1,50 @@
 import Testing
 import CoreGraphics
+import UIKit
 @testable import SleepDaddy
 
+@MainActor
+private final class TestVelocityPanGestureRecognizer: UIPanGestureRecognizer {
+    let testVelocity: CGPoint
+
+    init(velocity: CGPoint) {
+        self.testVelocity = velocity
+        super.init(target: nil, action: nil)
+    }
+
+    override func velocity(in view: UIView?) -> CGPoint {
+        testVelocity
+    }
+}
+
 struct TimelineGestureSessionTests {
+    @Test func panDirectionPolicyAcceptsOnlyPredominantlyHorizontalMotion() {
+        #expect(TimelinePanDirectionPolicy.shouldBegin(velocity: CGPoint(x: 80, y: 20)))
+        #expect(!TimelinePanDirectionPolicy.shouldBegin(velocity: CGPoint(x: 20, y: 80)))
+        #expect(!TimelinePanDirectionPolicy.shouldBegin(velocity: CGPoint(x: -80, y: 80)))
+        #expect(!TimelinePanDirectionPolicy.shouldBegin(velocity: .zero))
+    }
+
+    @Test @MainActor func gestureDelegateRejectsVerticalTimelinePanBeforeRecognition() {
+        let overlay = TimelineGestureOverlay(
+            onInteractionBegan: {},
+            onPanChanged: { _ in },
+            onPinchChanged: { _, _ in },
+            onInteractionEnded: { _ in },
+            onInteractionCancelled: {},
+            onTap: { _ in }
+        )
+        let coordinator = overlay.makeCoordinator()
+
+        #expect(coordinator.gestureRecognizerShouldBegin(
+            TestVelocityPanGestureRecognizer(velocity: CGPoint(x: 20, y: 80))
+        ) == false)
+        #expect(coordinator.gestureRecognizerShouldBegin(
+            TestVelocityPanGestureRecognizer(velocity: CGPoint(x: 80, y: 20))
+        ) == true)
+        #expect(coordinator.gestureRecognizerShouldBegin(UIPinchGestureRecognizer()) == true)
+    }
+
     @Test func pinchOnlySessionAfterFastPanSettlesWithZeroVelocity() {
         var session = TimelineGestureSession()
 

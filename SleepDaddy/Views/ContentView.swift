@@ -21,6 +21,18 @@ struct SelectedNightTimelineLayoutPreferenceKey: PreferenceKey {
     }
 }
 
+/// Reports the rendered timeline bounds after its composition-specific frame is applied.
+struct SelectedNightTimelineBoundsPreferenceKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(
+        value: inout Anchor<CGRect>?,
+        nextValue: () -> Anchor<CGRect>?
+    ) {
+        value = nextValue() ?? value
+    }
+}
+
 public struct ContentView: View {
     @State private var model: NightBrowserModel
     @Environment(\.verticalSizeClass) private var verticalSizeClass

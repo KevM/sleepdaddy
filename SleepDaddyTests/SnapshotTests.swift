@@ -15,13 +15,16 @@ private final class DelayedEmptySleepStore: HealthKitSleepStoreProtocol, @unchec
 }
 
 @MainActor
-private final class TimelineLayoutModeRecorder {
+private final class HostedTimelinePresentationRecorder {
     var mode: SelectedNightLayoutMode?
+    var timelineBounds: CGRect?
+    var headerPresentation: NightHeaderView.Presentation?
+    var headerBounds: CGRect?
 }
 
 private struct TimelineLayoutModeCaptureView: UIViewRepresentable {
     let mode: SelectedNightLayoutMode?
-    let recorder: TimelineLayoutModeRecorder
+    let recorder: HostedTimelinePresentationRecorder
 
     func makeUIView(context: Context) -> UIView {
         UIView(frame: .zero)
@@ -30,6 +33,82 @@ private struct TimelineLayoutModeCaptureView: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         recorder.mode = mode
     }
+}
+
+private struct TimelineBoundsCaptureView: View {
+    let anchor: Anchor<CGRect>?
+    let recorder: HostedTimelinePresentationRecorder
+
+    var body: some View {
+        GeometryReader { proxy in
+            TimelineBoundsRecorderView(
+                bounds: anchor.map { proxy[$0] },
+                recorder: recorder
+            )
+            .frame(width: 0, height: 0)
+        }
+    }
+}
+
+private struct TimelineBoundsRecorderView: UIViewRepresentable {
+    let bounds: CGRect?
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.timelineBounds = bounds
+    }
+}
+
+private struct HeaderPresentationCaptureView: UIViewRepresentable {
+    let presentation: NightHeaderView.Presentation?
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.headerPresentation = presentation
+    }
+}
+
+private struct HeaderBoundsCaptureView: View {
+    let anchor: Anchor<CGRect>?
+    let recorder: HostedTimelinePresentationRecorder
+
+    var body: some View {
+        GeometryReader { proxy in
+            HeaderBoundsRecorderView(
+                bounds: anchor.map { proxy[$0] },
+                recorder: recorder
+            )
+            .frame(width: 0, height: 0)
+        }
+    }
+}
+
+private struct HeaderBoundsRecorderView: UIViewRepresentable {
+    let bounds: CGRect?
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.headerBounds = bounds
+    }
+}
+
+private struct HostedTimelinePresentationMetrics {
+    let mode: SelectedNightLayoutMode?
+    let timelineBounds: CGRect?
+    let headerPresentation: NightHeaderView.Presentation?
+    let headerBounds: CGRect?
 }
 
 /// Composition tests for the timeline views.
@@ -421,6 +500,7 @@ struct SnapshotTests {
     /// `ImageRenderer` alone rasterizes a view that never entered a window, which is not
     /// enough for compositions that load asynchronously.
     @MainActor
+    @discardableResult
     private func assertHostedComposition(
         of view: some View,
         named name: String,
@@ -428,25 +508,49 @@ struct SnapshotTests {
         height: CGFloat,
         expectedTimelineLayoutMode: SelectedNightLayoutMode? = nil,
         isReady: @MainActor () -> Bool
-    ) async throws {
+    ) async throws -> HostedTimelinePresentationMetrics {
         let size = CGSize(width: width, height: height)
-        let layoutModeRecorder = TimelineLayoutModeRecorder()
+        let recorder = HostedTimelinePresentationRecorder()
         let controller = UIHostingController(
             rootView: view.overlayPreferenceValue(
                 SelectedNightTimelineLayoutPreferenceKey.self
             ) { layoutMode in
                 TimelineLayoutModeCaptureView(
                     mode: layoutMode,
-                    recorder: layoutModeRecorder
+                    recorder: recorder
                 )
                 .frame(width: 0, height: 0)
+            }
+            .overlayPreferenceValue(
+                SelectedNightTimelineBoundsPreferenceKey.self
+            ) { anchor in
+                TimelineBoundsCaptureView(anchor: anchor, recorder: recorder)
+            }
+            .overlayPreferenceValue(
+                NightHeaderPresentationPreferenceKey.self
+            ) { presentation in
+                HeaderPresentationCaptureView(
+                    presentation: presentation,
+                    recorder: recorder
+                )
+                .frame(width: 0, height: 0)
+            }
+            .overlayPreferenceValue(
+                NightHeaderBoundsPreferenceKey.self
+            ) { anchor in
+                HeaderBoundsCaptureView(anchor: anchor, recorder: recorder)
             }
         )
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .first else {
             Issue.record("Failed to find a window scene for hosted composition \(name)")
-            return
+            return HostedTimelinePresentationMetrics(
+                mode: nil,
+                timelineBounds: nil,
+                headerPresentation: nil,
+                headerBounds: nil
+            )
         }
         let window = UIWindow(windowScene: windowScene)
         window.frame = CGRect(origin: .zero, size: size)
@@ -468,8 +572,8 @@ struct SnapshotTests {
 
         if let expectedTimelineLayoutMode {
             #expect(
-                layoutModeRecorder.mode == expectedTimelineLayoutMode,
-                "\(name): Expected timeline layout \(expectedTimelineLayoutMode), got \(String(describing: layoutModeRecorder.mode))"
+                recorder.mode == expectedTimelineLayoutMode,
+                "\(name): Expected timeline layout \(expectedTimelineLayoutMode), got \(String(describing: recorder.mode))"
             )
         }
 
@@ -485,11 +589,23 @@ struct SnapshotTests {
 
         guard let cgImage = currentImage.cgImage else {
             Issue.record("Failed to render hosted composition \(name)")
-            return
+            return HostedTimelinePresentationMetrics(
+                mode: recorder.mode,
+                timelineBounds: recorder.timelineBounds,
+                headerPresentation: recorder.headerPresentation,
+                headerBounds: recorder.headerBounds
+            )
         }
 
         #expect(cgImage.width == Int(width * 2.0), "\(name) width")
         #expect(cgImage.height == Int(height * 2.0), "\(name) height")
+
+        return HostedTimelinePresentationMetrics(
+            mode: recorder.mode,
+            timelineBounds: recorder.timelineBounds,
+            headerPresentation: recorder.headerPresentation,
+            headerBounds: recorder.headerBounds
+        )
     }
 
     @MainActor
@@ -547,7 +663,7 @@ struct SnapshotTests {
             .environment(\.locale, Locale(identifier: "en_US"))
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
 
-        try await assertHostedComposition(
+        let metrics = try await assertHostedComposition(
             of: content,
             named: "loaded landscape",
             width: 852,
@@ -555,6 +671,12 @@ struct SnapshotTests {
             expectedTimelineLayoutMode: .immersiveLandscape,
             isReady: { model.appState == .loaded }
         )
+        let timelineBounds = try #require(metrics.timelineBounds)
+        #expect(
+            timelineBounds.height >= 220,
+            "Actual post-frame timeline bounds: \(timelineBounds)"
+        )
+        #expect(metrics.headerPresentation == .timelineOverlay)
     }
 
     @Test @MainActor func loadedLandscapeAccessibilityKeepsImmersiveTimeline() async throws {
@@ -565,7 +687,7 @@ struct SnapshotTests {
             .environment(\.locale, Locale(identifier: "en_US"))
             .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
 
-        try await assertHostedComposition(
+        let metrics = try await assertHostedComposition(
             of: content,
             named: "loaded landscape accessibility",
             width: 852,
@@ -573,6 +695,36 @@ struct SnapshotTests {
             expectedTimelineLayoutMode: .immersiveLandscape,
             isReady: { model.appState == .loaded }
         )
+        let timelineBounds = try #require(metrics.timelineBounds)
+        let headerBounds = try #require(metrics.headerBounds)
+        #expect(
+            timelineBounds.height >= 220,
+            "Actual post-frame timeline bounds: \(timelineBounds)"
+        )
+        #expect(metrics.headerPresentation == .timelineOverlay)
+        #expect(
+            headerBounds.height >= 74,
+            "Accessibility overlay header bounds should preserve wrapped text: \(headerBounds)"
+        )
+        #expect(timelineBounds.contains(headerBounds))
+    }
+
+    @Test @MainActor func loadedPortraitUsesStandardComposition() async throws {
+        let model = await makeLoadedFixtureModel(suiteName: "SnapshotTests.LoadedPortrait")
+        let content = ContentView(model: model)
+            .environment(\.verticalSizeClass, .regular)
+            .environment(\.locale, Locale(identifier: "en_US"))
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+
+        let metrics = try await assertHostedComposition(
+            of: content,
+            named: "loaded portrait",
+            width: 393,
+            height: 852,
+            expectedTimelineLayoutMode: .standard,
+            isReady: { model.appState == .loaded }
+        )
+        #expect(metrics.headerPresentation == .standalone)
     }
 
     @Test @MainActor func testSnapshotPortraitLightMode() {
@@ -633,7 +785,7 @@ struct SnapshotTests {
         )
     }
 
-    @Test @MainActor func immersiveEmptyNightKeepsNavigationAvailable() async {
+    @Test @MainActor func immersiveEmptyNightUsesStandaloneNavigationHeader() async throws {
         var fixtureCalendar = Calendar(identifier: .gregorian)
         fixtureCalendar.timeZone = .current
         let now = fixtureCalendar.date(
@@ -649,23 +801,20 @@ struct SnapshotTests {
         )
         await model.loadData()
 
-        let detail = SelectedNightDetailView(
-            model: model,
-            layoutMode: .immersiveLandscape,
-            dateRange: model.assembledNights.first!.date...model.assembledNights.last!.date
+        let content = ContentView(model: model)
+            .environment(\.verticalSizeClass, .compact)
+            .environment(\.locale, Locale(identifier: "en_US"))
+            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+        let metrics = try await assertHostedComposition(
+            of: content,
+            named: "immersive empty night",
+            width: 852,
+            height: 393,
+            isReady: { model.appState == .loaded }
         )
-        let renderer = ImageRenderer(
-            content: detail
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(width: 852)
-        )
-        renderer.scale = 2
-        guard let image = renderer.uiImage, let cgImage = image.cgImage else {
-            Issue.record("Failed to render immersive empty-night composition")
-            return
-        }
 
-        #expect(cgImage.height > 560, "Navigation header should render above the 240-point empty state")
+        #expect(metrics.headerPresentation == .standalone)
+        #expect(metrics.headerBounds?.height ?? 0 >= 44)
     }
 }
 

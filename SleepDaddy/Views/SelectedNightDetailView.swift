@@ -64,6 +64,11 @@ public struct SelectedNightDetailView: View {
                 if night.hasSleepData {
                     // Detailed Zoomable Timeline Canvas
                     timelineCanvas(night: night)
+                        .anchorPreference(
+                            key: SelectedNightTimelineBoundsPreferenceKey.self,
+                            value: .bounds,
+                            transform: { $0 }
+                        )
 
                     // Slim Context Navigator
                     contextNavigator(night: night)
@@ -89,6 +94,11 @@ public struct SelectedNightDetailView: View {
                                     availableHeight: proxy.size.height,
                                     navigatorHeight: 64
                                 ))
+                                .anchorPreference(
+                                    key: SelectedNightTimelineBoundsPreferenceKey.self,
+                                    value: .bounds,
+                                    transform: { $0 }
+                                )
                                 .overlay(alignment: .top) {
                                     NightHeaderView(
                                         night: night,

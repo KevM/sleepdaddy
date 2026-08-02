@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct NightHeaderView: View {
-    public enum Presentation: Sendable {
+    public enum Presentation: Equatable, Sendable {
         case standalone
         case timelineOverlay
     }
@@ -199,6 +199,15 @@ public struct NightHeaderView: View {
                 onNext()
             }
         }
+        .preference(
+            key: NightHeaderPresentationPreferenceKey.self,
+            value: presentation
+        )
+        .anchorPreference(
+            key: NightHeaderBoundsPreferenceKey.self,
+            value: .bounds,
+            transform: { $0 }
+        )
         .sheet(isPresented: $showingDatePicker) {
             NavigationStack {
                 datePickerContent
@@ -216,5 +225,27 @@ public struct NightHeaderView: View {
             }
             .presentationDetents([.medium])
         }
+    }
+}
+
+struct NightHeaderPresentationPreferenceKey: PreferenceKey {
+    static let defaultValue: NightHeaderView.Presentation? = nil
+
+    static func reduce(
+        value: inout NightHeaderView.Presentation?,
+        nextValue: () -> NightHeaderView.Presentation?
+    ) {
+        value = nextValue() ?? value
+    }
+}
+
+struct NightHeaderBoundsPreferenceKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(
+        value: inout Anchor<CGRect>?,
+        nextValue: () -> Anchor<CGRect>?
+    ) {
+        value = nextValue() ?? value
     }
 }
