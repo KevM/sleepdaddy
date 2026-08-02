@@ -333,7 +333,11 @@ public struct SleepTimelineCanvas: View {
                     }
                     .frame(height: verticalLayout.plotHeight)
 
-                    CombinedTimelineRail(night: night, viewport: liveViewport) { newViewport in
+                    CombinedTimelineRail(
+                        night: night,
+                        viewport: liveViewport,
+                        isInteractive: isInteractive && timelineInteractionEnabled
+                    ) { newViewport in
                         onUpdateViewport(newViewport.start, newViewport.end)
                     }
                     .preference(

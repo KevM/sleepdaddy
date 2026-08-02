@@ -611,4 +611,100 @@ struct SleepTimelineGeometryTests {
         #expect(SleepTimelineGeometry.timeLabelBandHeight == 20)
         #expect(SleepTimelineGeometry.navigatorTrackHeight == 10)
     }
+
+    @Test func combinedTimelineRailLabelBandInteractionRecentersAndDragsViewport() throws {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let viewport = TimelineViewport(
+            start: start.addingTimeInterval(3600),
+            end: start.addingTimeInterval(5 * 3600)
+        )
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: viewport,
+            canvasWidth: 400,
+            canvasHeight: 300
+        )
+        let railLayout = CombinedTimelineRailLayout(width: 400)
+        let interaction = try #require(
+            railLayout.interaction(
+                startingAt: CGPoint(x: 300, y: 10),
+                translationWidth: 40,
+                isEnabled: true
+            )
+        )
+
+        let recentered = geometry.navigatorViewport(
+            viewport,
+            centeredAtX: interaction.startX,
+            navigatorWidth: railLayout.width
+        )
+        let dragged = geometry.navigatorViewport(
+            recentered,
+            translatedBy: interaction.translationWidth,
+            navigatorWidth: railLayout.width
+        )
+
+        #expect(interaction.startX == 300)
+        #expect(abs(recentered.start.timeIntervalSince(start) - 7 * 3600) < 0.001)
+        #expect(abs(dragged.start.timeIntervalSince(start) - 8 * 3600) < 0.001)
+    }
+
+    @Test func combinedTimelineRailRejectsInteractionWhenDisabled() {
+        let railLayout = CombinedTimelineRailLayout(width: 400)
+
+        #expect(
+            railLayout.interaction(
+                startingAt: CGPoint(x: 200, y: 10),
+                translationWidth: 20,
+                isEnabled: false
+            ) == nil
+        )
+    }
+
+    @Test func disabledCombinedTimelineRailDoesNotAdvertiseAdjustment() {
+        let presentation = CombinedTimelineRailAccessibilityPresentation(
+            isInteractive: false
+        )
+
+        #expect(presentation.adjustmentHint == nil)
+        #expect(!presentation.supportsAdjustment)
+    }
+
+    @Test func combinedTimelineRailMinimumHandleStaysInsideLeftBoundary() {
+        let handle = CombinedTimelineRailLayout(width: 400).viewportHandle(
+            fromX: 0,
+            toX: 2
+        )
+
+        #expect(handle == CGRect(x: 0, y: 0, width: 10, height: 10))
+    }
+
+    @Test func combinedTimelineRailMinimumHandleStaysInsideRightBoundary() {
+        let handle = CombinedTimelineRailLayout(width: 400).viewportHandle(
+            fromX: 398,
+            toX: 400
+        )
+
+        #expect(handle == CGRect(x: 390, y: 0, width: 10, height: 10))
+    }
+
+    @Test func combinedTimelineRailMinimumHandleStaysCenteredInTrackInterior() {
+        let handle = CombinedTimelineRailLayout(width: 400).viewportHandle(
+            fromX: 199,
+            toX: 201
+        )
+
+        #expect(handle == CGRect(x: 195, y: 0, width: 10, height: 10))
+    }
+
+    @Test func combinedTimelineRailHandleNeverExceedsNarrowTrack() {
+        let handle = CombinedTimelineRailLayout(width: 6).viewportHandle(
+            fromX: 2,
+            toX: 4
+        )
+
+        #expect(handle == CGRect(x: 0, y: 0, width: 6, height: 10))
+    }
 }

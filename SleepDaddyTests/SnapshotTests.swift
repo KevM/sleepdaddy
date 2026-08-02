@@ -22,7 +22,64 @@ private final class HostedTimelinePresentationRecorder {
     var headerBounds: CGRect?
     var landscapeToolbarIsPresent = false
     var combinedRailIsPresent = false
+    var combinedRailLabelBandBounds: CGRect?
+    var combinedRailNavigatorBounds: CGRect?
+    var combinedRailLabelDynamicTypeSize: DynamicTypeSize?
     var landscapeToolbarElements: [LandscapeNightToolbarSemanticElement] = []
+}
+
+private struct CombinedTimelineRailLabelDynamicTypeSizeCaptureView: UIViewRepresentable {
+    let dynamicTypeSize: DynamicTypeSize?
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.combinedRailLabelDynamicTypeSize = dynamicTypeSize
+    }
+}
+
+private struct CombinedTimelineRailBandBoundsCaptureView: View {
+    enum Band {
+        case label
+        case navigator
+    }
+
+    let anchor: Anchor<CGRect>?
+    let band: Band
+    let recorder: HostedTimelinePresentationRecorder
+
+    var body: some View {
+        GeometryReader { proxy in
+            CombinedTimelineRailBandBoundsRecorderView(
+                bounds: anchor.map { proxy[$0] },
+                band: band,
+                recorder: recorder
+            )
+            .frame(width: 0, height: 0)
+        }
+    }
+}
+
+private struct CombinedTimelineRailBandBoundsRecorderView: UIViewRepresentable {
+    let bounds: CGRect?
+    let band: CombinedTimelineRailBandBoundsCaptureView.Band
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        switch band {
+        case .label:
+            recorder.combinedRailLabelBandBounds = bounds
+        case .navigator:
+            recorder.combinedRailNavigatorBounds = bounds
+        }
+    }
 }
 
 private struct TimelineLayoutModeCaptureView: UIViewRepresentable {
@@ -153,6 +210,9 @@ private struct HostedTimelinePresentationMetrics {
     let headerBounds: CGRect?
     let landscapeToolbarIsPresent: Bool
     let combinedRailIsPresent: Bool
+    let combinedRailLabelBandBounds: CGRect?
+    let combinedRailNavigatorBounds: CGRect?
+    let combinedRailLabelDynamicTypeSize: DynamicTypeSize?
 }
 
 /// Composition tests for the timeline views.
@@ -684,6 +744,33 @@ struct SnapshotTests {
                 )
                 .frame(width: 0, height: 0)
             }
+            .overlayPreferenceValue(
+                CombinedTimelineRailLabelBandBoundsPreferenceKey.self
+            ) { labelAnchor in
+                CombinedTimelineRailBandBoundsCaptureView(
+                    anchor: labelAnchor,
+                    band: .label,
+                    recorder: recorder
+                )
+            }
+            .overlayPreferenceValue(
+                CombinedTimelineRailNavigatorBoundsPreferenceKey.self
+            ) { navigatorAnchor in
+                CombinedTimelineRailBandBoundsCaptureView(
+                    anchor: navigatorAnchor,
+                    band: .navigator,
+                    recorder: recorder
+                )
+            }
+            .overlayPreferenceValue(
+                CombinedTimelineRailLabelDynamicTypeSizePreferenceKey.self
+            ) { dynamicTypeSize in
+                CombinedTimelineRailLabelDynamicTypeSizeCaptureView(
+                    dynamicTypeSize: dynamicTypeSize,
+                    recorder: recorder
+                )
+                .frame(width: 0, height: 0)
+            }
         )
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -695,7 +782,10 @@ struct SnapshotTests {
                 headerPresentation: nil,
                 headerBounds: nil,
                 landscapeToolbarIsPresent: false,
-                combinedRailIsPresent: false
+                combinedRailIsPresent: false,
+                combinedRailLabelBandBounds: nil,
+                combinedRailNavigatorBounds: nil,
+                combinedRailLabelDynamicTypeSize: nil
             )
         }
         let window = UIWindow(windowScene: windowScene)
@@ -750,7 +840,10 @@ struct SnapshotTests {
                 headerPresentation: recorder.headerPresentation,
                 headerBounds: recorder.headerBounds,
                 landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent,
-                combinedRailIsPresent: recorder.combinedRailIsPresent
+                combinedRailIsPresent: recorder.combinedRailIsPresent,
+                combinedRailLabelBandBounds: recorder.combinedRailLabelBandBounds,
+                combinedRailNavigatorBounds: recorder.combinedRailNavigatorBounds,
+                combinedRailLabelDynamicTypeSize: recorder.combinedRailLabelDynamicTypeSize
             )
         }
 
@@ -763,7 +856,10 @@ struct SnapshotTests {
             headerPresentation: recorder.headerPresentation,
             headerBounds: recorder.headerBounds,
             landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent,
-            combinedRailIsPresent: recorder.combinedRailIsPresent
+            combinedRailIsPresent: recorder.combinedRailIsPresent,
+            combinedRailLabelBandBounds: recorder.combinedRailLabelBandBounds,
+            combinedRailNavigatorBounds: recorder.combinedRailNavigatorBounds,
+            combinedRailLabelDynamicTypeSize: recorder.combinedRailLabelDynamicTypeSize
         )
     }
 
@@ -866,6 +962,12 @@ struct SnapshotTests {
         #expect(metrics.landscapeToolbarIsPresent)
         #expect(metrics.combinedRailIsPresent)
         #expect(metrics.headerPresentation == nil)
+        let labelBounds = try #require(metrics.combinedRailLabelBandBounds)
+        let navigatorBounds = try #require(metrics.combinedRailNavigatorBounds)
+        #expect(labelBounds.height == SleepTimelineGeometry.timeLabelBandHeight)
+        #expect(labelBounds.maxY <= navigatorBounds.minY)
+        #expect(navigatorBounds.maxY - labelBounds.minY == SleepTimelineGeometry.timeAxisHeight)
+        #expect(metrics.combinedRailLabelDynamicTypeSize == .accessibility1)
     }
 
     @Test @MainActor func loadedPortraitUsesStandardComposition() async throws {

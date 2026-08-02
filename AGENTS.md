@@ -44,7 +44,7 @@ sleepdaddy/
 │   ├── Services/               # HealthKitSleepStore, FixtureSleepStore, SleepNormalizer, NightAssembler, PreferencesStore
 │   ├── ViewModels/             # NightBrowserModel (@Observable)
 │   ├── Layout/                 # SleepTimelineGeometry
-│   ├── Views/                  # ContentView, MultiNightOverviewStrip, SelectedNightDetailView, SleepTimelineCanvas, SlimContextNavigator, IntervalInspectorSheet, SourceFilterView, SettingsView, ExcludedRecordsView, ShareTimelineCardView
+│   ├── Views/                  # ContentView, MultiNightOverviewStrip, SelectedNightDetailView, SleepTimelineCanvas, CombinedTimelineRail, IntervalInspectorSheet, SourceFilterView, SettingsView, ExcludedRecordsView, ShareTimelineCardView
 │   └── Utilities/              # SleepShareRenderer, AccessibilityHelpers
 └── SleepDaddyTests/            # Unit test suites (Swift Testing)
 ```
