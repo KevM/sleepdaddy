@@ -41,6 +41,17 @@ public struct ContentView: View {
         self._model = State(initialValue: model ?? NightBrowserModel())
     }
 
+    private var currentLayoutMode: SelectedNightLayoutMode {
+        SelectedNightLayoutMode.resolve(verticalSizeClass: verticalSizeClass)
+    }
+
+    private var selectedDateRange: ClosedRange<Date>? {
+        guard let first = model.assembledNights.first?.date,
+              let last = model.assembledNights.last?.date,
+              first <= last else { return nil }
+        return first...last
+    }
+
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -119,24 +130,14 @@ public struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 case .loaded:
-                    let layoutMode = SelectedNightLayoutMode.resolve(
-                        verticalSizeClass: verticalSizeClass
-                    )
-                    let dateRange: ClosedRange<Date>? = {
-                        guard let first = model.assembledNights.first?.date,
-                              let last = model.assembledNights.last?.date,
-                              first <= last else { return nil }
-                        return first...last
-                    }()
-
                     VStack(spacing: 0) {
-                        if layoutMode == .standard {
+                        if currentLayoutMode == .standard {
                             if let night = model.selectedAssembledNight {
                                 NightHeaderView(
                                     night: night,
                                     canGoPrevious: model.canSelectPreviousNight,
                                     canGoNext: model.canSelectNextNight,
-                                    dateRange: dateRange,
+                                    dateRange: selectedDateRange,
                                     onPrevious: model.selectPreviousNight,
                                     onNext: model.selectNextNight,
                                     onSelectDate: model.selectNight
@@ -149,15 +150,13 @@ public struct ContentView: View {
                             // Selected Night Detail
                             SelectedNightDetailView(
                                 model: model,
-                                layoutMode: layoutMode,
-                                dateRange: dateRange
+                                layoutMode: currentLayoutMode
                             )
                             .padding(.vertical, 8)
                         } else {
                             SelectedNightDetailView(
                                 model: model,
-                                layoutMode: layoutMode,
-                                dateRange: dateRange
+                                layoutMode: currentLayoutMode
                             )
                         }
                     }
@@ -171,6 +170,18 @@ public struct ContentView: View {
             .navigationTitle("SleepDaddy")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if model.appState == .loaded,
+                   currentLayoutMode == .immersiveLandscape,
+                   let night = model.selectedAssembledNight {
+                    ToolbarItem(placement: .principal) {
+                        LandscapeNightToolbarView(
+                            night: night,
+                            dateRange: selectedDateRange,
+                            onSelectDate: model.selectNight
+                        )
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 0) {
                         CompactSourceFilterButton(

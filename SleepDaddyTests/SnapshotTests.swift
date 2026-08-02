@@ -20,6 +20,8 @@ private final class HostedTimelinePresentationRecorder {
     var timelineBounds: CGRect?
     var headerPresentation: NightHeaderView.Presentation?
     var headerBounds: CGRect?
+    var landscapeToolbarIsPresent = false
+    var landscapeToolbarElements: [LandscapeNightToolbarSemanticElement] = []
 }
 
 private struct TimelineLayoutModeCaptureView: UIViewRepresentable {
@@ -104,11 +106,38 @@ private struct HeaderBoundsRecorderView: UIViewRepresentable {
     }
 }
 
+private struct LandscapeToolbarPresenceCaptureView: UIViewRepresentable {
+    let isPresent: Bool
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.landscapeToolbarIsPresent = isPresent
+    }
+}
+
+private struct LandscapeToolbarElementsCaptureView: UIViewRepresentable {
+    let elements: [LandscapeNightToolbarSemanticElement]
+    let recorder: HostedTimelinePresentationRecorder
+
+    func makeUIView(context: Context) -> UIView {
+        UIView(frame: .zero)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        recorder.landscapeToolbarElements = elements
+    }
+}
+
 private struct HostedTimelinePresentationMetrics {
     let mode: SelectedNightLayoutMode?
     let timelineBounds: CGRect?
     let headerPresentation: NightHeaderView.Presentation?
     let headerBounds: CGRect?
+    let landscapeToolbarIsPresent: Bool
 }
 
 /// Composition tests for the timeline views.
@@ -238,27 +267,60 @@ struct SnapshotTests {
         )
     }
 
-    @Test @MainActor func timelineOverlayHeaderRendersAtAccessibilitySize() {
-        let night = makeFixtureNight()
-        let header = NightHeaderView(
-            night: night,
-            canGoPrevious: true,
-            canGoNext: true,
-            presentation: .timelineOverlay,
-            onPrevious: {},
-            onNext: {},
+    @Test @MainActor func landscapeToolbarSeparatesDateAndDuration() async throws {
+        let recorder = HostedTimelinePresentationRecorder()
+        let toolbar = LandscapeNightToolbarView(
+            night: makeFixtureNight(),
+            dateRange: nil,
             onSelectDate: { _ in }
         )
-        .frame(width: 520, height: 82)
-        .environment(\.dynamicTypeSize, .accessibility2)
         .environment(\.locale, Locale(identifier: "en_US"))
         .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+        .overlayPreferenceValue(
+            LandscapeNightToolbarSemanticElementsPreferenceKey.self
+        ) { elements in
+            LandscapeToolbarElementsCaptureView(
+                elements: elements,
+                recorder: recorder
+            )
+            .frame(width: 0, height: 0)
+        }
 
-        renderComposition(
-            of: header,
-            named: "timeline overlay header accessibility",
-            expecting: CGSize(width: 520, height: 82)
+        let controller = UIHostingController(rootView: toolbar)
+        let windowScene = try #require(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first
         )
+        let window = UIWindow(windowScene: windowScene)
+        window.frame = CGRect(x: 0, y: 0, width: 320, height: 60)
+        window.rootViewController = controller
+        window.isHidden = false
+        controller.view.frame = window.bounds
+        controller.view.layoutIfNeeded()
+        for _ in 0..<100 where recorder.landscapeToolbarElements.count != 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        controller.view.layoutIfNeeded()
+
+        let dateElement = try #require(
+            recorder.landscapeToolbarElements.first { $0.role == .datePicker }
+        )
+        let durationElement = try #require(
+            recorder.landscapeToolbarElements.first { $0.role == .duration }
+        )
+        #expect(recorder.landscapeToolbarElements.count == 2)
+        #expect(dateElement.isInteractive)
+        #expect(dateElement.accessibilityLabel == "Sun, Jul 26")
+        #expect(dateElement.accessibilityHint == "Double tap to choose a date.")
+        #expect(!dateElement.accessibilityLabel.contains("4h 30m"))
+        #expect(!durationElement.isInteractive)
+        #expect(durationElement.accessibilityLabel == "Sleep duration, 4h 30m")
+        #expect(durationElement.accessibilityHint == nil)
+        try await Task.sleep(for: .milliseconds(50))
+        window.isHidden = true
+        window.rootViewController = nil
+        try await Task.sleep(for: .milliseconds(10))
     }
 
     @Test @MainActor func testSleepTimelineCanvasSnapshotComposition() {
@@ -507,7 +569,8 @@ struct SnapshotTests {
         width: CGFloat,
         height: CGFloat,
         expectedTimelineLayoutMode: SelectedNightLayoutMode? = nil,
-        isReady: @MainActor () -> Bool
+        expectsLandscapeToolbar: Bool = false,
+        isReady: @escaping @MainActor () -> Bool
     ) async throws -> HostedTimelinePresentationMetrics {
         let size = CGSize(width: width, height: height)
         let recorder = HostedTimelinePresentationRecorder()
@@ -540,6 +603,15 @@ struct SnapshotTests {
             ) { anchor in
                 HeaderBoundsCaptureView(anchor: anchor, recorder: recorder)
             }
+            .overlayPreferenceValue(
+                LandscapeNightToolbarPresencePreferenceKey.self
+            ) { isPresent in
+                LandscapeToolbarPresenceCaptureView(
+                    isPresent: isPresent,
+                    recorder: recorder
+                )
+                .frame(width: 0, height: 0)
+            }
         )
         guard let windowScene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -549,7 +621,8 @@ struct SnapshotTests {
                 mode: nil,
                 timelineBounds: nil,
                 headerPresentation: nil,
-                headerBounds: nil
+                headerBounds: nil,
+                landscapeToolbarIsPresent: false
             )
         }
         let window = UIWindow(windowScene: windowScene)
@@ -560,10 +633,19 @@ struct SnapshotTests {
         controller.view.frame = window.bounds
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
-        for _ in 0..<200 where !isReady() {
+        let hostedContentIsReady = {
+            isReady()
+                && (expectedTimelineLayoutMode == nil
+                    || recorder.mode == expectedTimelineLayoutMode)
+                && (!expectsLandscapeToolbar || recorder.landscapeToolbarIsPresent)
+        }
+        for _ in 0..<200 where !hostedContentIsReady() {
             try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(isReady(), "\(name): Hosted content did not reach its expected state")
+        #expect(
+            hostedContentIsReady(),
+            "\(name): Hosted content did not reach its expected state"
+        )
         controller.view.setNeedsLayout()
         controller.view.layoutIfNeeded()
         try await Task.sleep(for: .milliseconds(10))
@@ -593,7 +675,8 @@ struct SnapshotTests {
                 mode: recorder.mode,
                 timelineBounds: recorder.timelineBounds,
                 headerPresentation: recorder.headerPresentation,
-                headerBounds: recorder.headerBounds
+                headerBounds: recorder.headerBounds,
+                landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent
             )
         }
 
@@ -604,7 +687,8 @@ struct SnapshotTests {
             mode: recorder.mode,
             timelineBounds: recorder.timelineBounds,
             headerPresentation: recorder.headerPresentation,
-            headerBounds: recorder.headerBounds
+            headerBounds: recorder.headerBounds,
+            landscapeToolbarIsPresent: recorder.landscapeToolbarIsPresent
         )
     }
 
@@ -669,6 +753,7 @@ struct SnapshotTests {
             width: 852,
             height: 393,
             expectedTimelineLayoutMode: .immersiveLandscape,
+            expectsLandscapeToolbar: true,
             isReady: { model.appState == .loaded }
         )
         let timelineBounds = try #require(metrics.timelineBounds)
@@ -676,7 +761,8 @@ struct SnapshotTests {
             timelineBounds.height >= 220,
             "Actual post-frame timeline bounds: \(timelineBounds)"
         )
-        #expect(metrics.headerPresentation == .timelineOverlay)
+        #expect(metrics.landscapeToolbarIsPresent)
+        #expect(metrics.headerPresentation == nil)
     }
 
     @Test @MainActor func loadedLandscapeAccessibilityKeepsImmersiveTimeline() async throws {
@@ -693,20 +779,16 @@ struct SnapshotTests {
             width: 852,
             height: 393,
             expectedTimelineLayoutMode: .immersiveLandscape,
+            expectsLandscapeToolbar: true,
             isReady: { model.appState == .loaded }
         )
         let timelineBounds = try #require(metrics.timelineBounds)
-        let headerBounds = try #require(metrics.headerBounds)
         #expect(
             timelineBounds.height >= 220,
             "Actual post-frame timeline bounds: \(timelineBounds)"
         )
-        #expect(metrics.headerPresentation == .timelineOverlay)
-        #expect(
-            headerBounds.height >= 74,
-            "Accessibility overlay header bounds should preserve wrapped text: \(headerBounds)"
-        )
-        #expect(timelineBounds.contains(headerBounds))
+        #expect(metrics.landscapeToolbarIsPresent)
+        #expect(metrics.headerPresentation == nil)
     }
 
     @Test @MainActor func loadedPortraitUsesStandardComposition() async throws {
@@ -785,7 +867,7 @@ struct SnapshotTests {
         )
     }
 
-    @Test @MainActor func immersiveEmptyNightUsesStandaloneNavigationHeader() async throws {
+    @Test @MainActor func immersiveEmptyNightUsesEdgeNavigation() async throws {
         var fixtureCalendar = Calendar(identifier: .gregorian)
         fixtureCalendar.timeZone = .current
         let now = fixtureCalendar.date(
@@ -810,11 +892,12 @@ struct SnapshotTests {
             named: "immersive empty night",
             width: 852,
             height: 393,
+            expectsLandscapeToolbar: true,
             isReady: { model.appState == .loaded }
         )
 
-        #expect(metrics.headerPresentation == .standalone)
-        #expect(metrics.headerBounds?.height ?? 0 >= 44)
+        #expect(metrics.landscapeToolbarIsPresent)
+        #expect(metrics.headerPresentation == nil)
     }
 }
 

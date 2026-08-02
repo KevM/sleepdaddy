@@ -3,7 +3,6 @@ import SwiftUI
 public struct NightHeaderView: View {
     public enum Presentation: Equatable, Sendable {
         case standalone
-        case timelineOverlay
     }
 
     let night: AssembledNight
@@ -60,12 +59,14 @@ public struct NightHeaderView: View {
         )
     }
 
+    static func formattedDuration(for night: AssembledNight) -> String {
+        night.hasSleepData
+            ? AccessibilityHelpers.formattedTimeInterval(night.summary.totalSleepDuration)
+            : "No Data"
+    }
+
     private var durationFormatted: String {
-        if night.hasSleepData {
-            return AccessibilityHelpers.formattedTimeInterval(night.summary.totalSleepDuration)
-        } else {
-            return "No Data"
-        }
+        Self.formattedDuration(for: night)
     }
 
     @ViewBuilder
@@ -151,21 +152,10 @@ public struct NightHeaderView: View {
     }
 
     public var body: some View {
-        Group {
-            switch presentation {
-            case .standalone:
-                headerContent
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color(UIColor.systemBackground))
-            case .timelineOverlay:
-                headerContent
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-                    .shadow(color: .black.opacity(0.12), radius: 4, y: 2)
-            }
-        }
+        headerContent
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color(UIColor.systemBackground))
         .gesture(
             DragGesture(minimumDistance: 24)
                 .onChanged { value in

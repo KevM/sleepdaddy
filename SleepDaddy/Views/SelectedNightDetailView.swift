@@ -3,23 +3,19 @@ import SwiftUI
 public struct SelectedNightDetailView: View {
     @Bindable var model: NightBrowserModel
     let layoutMode: SelectedNightLayoutMode
-    let dateRange: ClosedRange<Date>?
     @State private var viewportPresentation = TimelineViewportPresentation()
 
     public init(model: NightBrowserModel) {
         self.model = model
         self.layoutMode = .standard
-        self.dateRange = nil
     }
 
     init(
         model: NightBrowserModel,
-        layoutMode: SelectedNightLayoutMode,
-        dateRange: ClosedRange<Date>?
+        layoutMode: SelectedNightLayoutMode
     ) {
         self.model = model
         self.layoutMode = layoutMode
-        self.dateRange = dateRange
     }
 
     nonisolated static func immersiveTimelineHeight(
@@ -99,19 +95,9 @@ public struct SelectedNightDetailView: View {
                                     value: .bounds,
                                     transform: { $0 }
                                 )
-                                .overlay(alignment: .top) {
-                                    NightHeaderView(
-                                        night: night,
-                                        canGoPrevious: model.canSelectPreviousNight,
-                                        canGoNext: model.canSelectNextNight,
-                                        dateRange: dateRange,
-                                        presentation: .timelineOverlay,
-                                        onPrevious: model.selectPreviousNight,
-                                        onNext: model.selectNextNight,
-                                        onSelectDate: model.selectNight
-                                    )
-                                    .padding(.horizontal, 84)
-                                    .padding(.top, 4)
+                                .overlay {
+                                    timelineNavigationControls
+                                        .padding(.horizontal, 16)
                                 }
 
                             contextNavigator(night: night)
@@ -120,18 +106,10 @@ public struct SelectedNightDetailView: View {
                     .scrollBounceBehavior(.basedOnSize)
                 }
             } else {
-                VStack(spacing: 12) {
-                    NightHeaderView(
-                        night: night,
-                        canGoPrevious: model.canSelectPreviousNight,
-                        canGoNext: model.canSelectNextNight,
-                        dateRange: dateRange,
-                        onPrevious: model.selectPreviousNight,
-                        onNext: model.selectNextNight,
-                        onSelectDate: model.selectNight
-                    )
-
-                    emptyNightState
+                emptyNightState
+                    .overlay {
+                        timelineNavigationControls
+                            .padding(.horizontal, 16)
                 }
             }
         } else {
@@ -140,6 +118,15 @@ public struct SelectedNightDetailView: View {
                     .frame(height: 240)
             }
         }
+    }
+
+    private var timelineNavigationControls: some View {
+        TimelineNightNavigationControls(
+            canGoPrevious: model.canSelectPreviousNight,
+            canGoNext: model.canSelectNextNight,
+            onPrevious: model.selectPreviousNight,
+            onNext: model.selectNextNight
+        )
     }
 
     private func timelineCanvas(night: AssembledNight) -> some View {
