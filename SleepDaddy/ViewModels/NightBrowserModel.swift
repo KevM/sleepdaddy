@@ -65,7 +65,7 @@ public final class NightBrowserModel: @unchecked Sendable {
             appState = .loading
         }
 
-        guard HKHealthStore.isHealthDataAvailable() || store is FixtureSleepStore else {
+        guard HKHealthStore.isHealthDataAvailable() || !(store is HealthKitSleepStore) else {
             appState = .unavailable
             return
         }
@@ -116,6 +116,9 @@ public final class NightBrowserModel: @unchecked Sendable {
             }
 
             appState = .loaded
+        } catch where preservingNavigationState {
+            // Keep the last successfully loaded timeline visible when a foreground
+            // refresh encounters a transient HealthKit failure.
         } catch {
             appState = .error(error.localizedDescription)
         }
@@ -131,9 +134,10 @@ public final class NightBrowserModel: @unchecked Sendable {
         assembledNights.first { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
-    /// - Parameter preservingViewport: pass `true` only when the change cannot move a night's
-    ///   bounds — a display-only preference. Source selection and the core window
-    ///   both shift `detectedStart` / `detectedEnd`, so those must re-derive the viewport.
+    /// - Parameter preservingViewport: pass `true` for display-only preferences that cannot
+    ///   move a night's bounds, or for a foreground refresh where preserving the user's
+    ///   navigation takes precedence even if newly fetched intervals move those bounds.
+    ///   Source selection and core-window changes must still re-derive the viewport.
     public func reassembleNights(preservingViewport: Bool = false) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now())

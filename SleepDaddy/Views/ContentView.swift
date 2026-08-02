@@ -264,19 +264,23 @@ private func previewModel(hidesBriefAwakes: Bool,
 
 #Preview("Filter active") {
     ContentView(model: previewModel(hidesBriefAwakes: true))
+        .environment(\.scenePhase, .active)
 }
 
 #Preview("Filter active (dark)") {
     ContentView(model: previewModel(hidesBriefAwakes: true))
         .preferredColorScheme(.dark)
+        .environment(\.scenePhase, .active)
 }
 
 #Preview("No filter") {
     ContentView(model: previewModel(hidesBriefAwakes: false))
+        .environment(\.scenePhase, .active)
 }
 
 #Preview("HealthKit not authorized") {
     ContentView(model: previewModel(hidesBriefAwakes: false, isHealthKitAuthorized: false))
+        .environment(\.scenePhase, .active)
 }
 
 #endif

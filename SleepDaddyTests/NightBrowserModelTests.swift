@@ -184,12 +184,34 @@ struct NightBrowserModelTests {
         let refresh = Task {
             await model.handleScenePhaseChange(.active)
         }
-        await store.waitForFetchCount(2)
+        guard await store.waitForFetchCount(2) else {
+            Issue.record("Timed out waiting for the foreground refresh to start")
+            refresh.cancel()
+            return
+        }
 
         #expect(model.appState == .loaded)
 
         await store.resumeFetch()
         await refresh.value
+    }
+
+    @Test @MainActor func failedSceneActivationRefreshKeepsLoadedContent() async {
+        let store = RefreshFailingSleepStore()
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let model = NightBrowserModel(
+            store: store,
+            preferencesStore: PreferencesStore(userDefaults: defaults),
+            now: { Self.july25Noon }
+        )
+        await model.loadData()
+        let expectedNights = model.assembledNights
+        await store.failNextFetch()
+
+        await model.handleScenePhaseChange(.active)
+
+        #expect(model.appState == .loaded)
+        #expect(model.assembledNights == expectedNights)
     }
 
     @Test @MainActor func overlappingSceneActivationsShareOneRefresh() async {
@@ -206,7 +228,11 @@ struct NightBrowserModelTests {
         let firstRefresh = Task {
             await model.handleScenePhaseChange(.active)
         }
-        await store.waitForFetchCount(2)
+        guard await store.waitForFetchCount(2) else {
+            Issue.record("Timed out waiting for the first foreground refresh to start")
+            firstRefresh.cancel()
+            return
+        }
         let overlappingRefresh = Task {
             await model.handleScenePhaseChange(.active)
         }
@@ -379,10 +405,14 @@ private actor BlockingSleepStore: HealthKitSleepStoreProtocol {
         blocksNextFetch = true
     }
 
-    func waitForFetchCount(_ expectedCount: Int) async {
-        while fetchCount < expectedCount {
+    func waitForFetchCount(_ expectedCount: Int, maxYields: Int = 1_000) async -> Bool {
+        for _ in 0..<maxYields {
+            if fetchCount >= expectedCount {
+                return true
+            }
             await Task.yield()
         }
+        return fetchCount >= expectedCount
     }
 
     func currentFetchCount() -> Int {
@@ -392,5 +422,29 @@ private actor BlockingSleepStore: HealthKitSleepStoreProtocol {
     func resumeFetch() {
         fetchContinuation?.resume()
         fetchContinuation = nil
+    }
+}
+
+private actor RefreshFailingSleepStore: HealthKitSleepStoreProtocol {
+    private enum TestError: Error {
+        case refreshFailed
+    }
+
+    private var shouldFailNextFetch = false
+
+    func requestAuthorization() async throws -> Bool {
+        true
+    }
+
+    func fetchSleepSamples(start: Date, end: Date) async throws -> [NormalizedSleepInterval] {
+        if shouldFailNextFetch {
+            shouldFailNextFetch = false
+            throw TestError.refreshFailed
+        }
+        return []
+    }
+
+    func failNextFetch() {
+        shouldFailNextFetch = true
     }
 }

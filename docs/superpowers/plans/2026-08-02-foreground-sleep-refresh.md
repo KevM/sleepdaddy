@@ -36,7 +36,7 @@ Add tests that load an older fixture interval, introduce a newer night, invoke `
 Run:
 
 ```bash
-xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData -only-testing:SleepDaddyTests/NightBrowserModelTests/sceneActivationRefreshesNewSleepData
+xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData -only-testing:SleepDaddyTests/NightBrowserModelTests
 ```
 
 Expected: compilation fails because `handleScenePhaseChange` does not exist.
