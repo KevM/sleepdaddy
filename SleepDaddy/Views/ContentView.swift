@@ -228,11 +228,18 @@ public struct ContentView: View {
 
     private func exportAndShare(night: AssembledNight) {
         let renderer = SleepShareRenderer()
-        let desc = model.preferences.selectedSourceIdentifiers.isEmpty ? "All Sources" : model.preferences.selectedSourceIdentifiers.compactMap { model.availableSources[$0] }.joined(separator: ", ")
+        let desc: String? = model.preferences.selectedSourceIdentifiers.isEmpty
+            ? nil
+            : model.preferences.selectedSourceIdentifiers
+                .compactMap { model.availableSources[$0] }
+                .joined(separator: ", ")
+        // The night's detected span, not `model.viewportStart`: the card headlines the
+        // night's total sleep, so exporting whatever the user happened to be zoomed into
+        // would caption that total with a range it does not describe.
         if let image = renderer.renderShareImage(
             night: night,
-            viewportStart: model.viewportStart,
-            viewportEnd: model.viewportEnd,
+            viewportStart: night.detectedStart,
+            viewportEnd: night.detectedEnd,
             sourceFilterDescription: desc
         ) {
             model.exportedImage = image

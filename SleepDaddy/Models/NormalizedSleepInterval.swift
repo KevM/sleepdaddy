@@ -35,10 +35,7 @@ public struct NormalizedSleepInterval: Identifiable, Hashable, Codable, Sendable
     }
 
     public var accessibilityDescription: String {
-        let formatter = DateIntervalFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        let timeRange = formatter.string(from: startDate, to: endDate)
+        let timeRange = AccessibilityHelpers.formattedTimeRange(start: startDate, end: endDate)
 
         let durationMinutes = Int(round(duration / 60.0))
         return "\(stage.displayName), \(timeRange) (\(durationMinutes) min), from \(sourceName)"

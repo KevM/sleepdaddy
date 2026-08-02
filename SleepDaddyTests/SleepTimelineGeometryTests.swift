@@ -624,6 +624,58 @@ struct SleepTimelineGeometryTests {
         #expect(deepCenter + halfLaneHeight <= layout.plotHeight)
     }
 
+    @Test func defaultChromeLeavesTheInteractiveLayoutUnchanged() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let layout = SleepTimelineCanvasVerticalLayout(totalHeight: 240)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: TimelineViewport(start: start, end: end),
+            canvasWidth: 400,
+            canvasHeight: layout.geometryHeight
+        )
+
+        #expect(layout.plotHeight == 196)
+        #expect(geometry.usablePlotHeight() == 180)
+        #expect(geometry.yCenterPosition(for: .awake) == 38.5)
+    }
+
+    /// On screen the stages sit 38.5pt from the top and 22.5pt from the bottom; the extra
+    /// 16pt of `topPadding` clears the conflict markers. An export has no markers, so the
+    /// padding shrinks and the plot reads as centred rather than as having a gutter.
+    @Test func exportChromeCentersTheStagesInThePlot() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(12 * 3600)
+        let layout = SleepTimelineCanvasVerticalLayout(totalHeight: 240, chrome: .export)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: TimelineViewport(start: start, end: end),
+            canvasWidth: 400,
+            canvasHeight: layout.geometryHeight,
+            chrome: .export
+        )
+
+        let above = geometry.yCenterPosition(for: .awake)
+        let below = layout.plotHeight - geometry.yCenterPosition(for: .deep)
+
+        #expect(layout.plotHeight == 220)
+        #expect(geometry.usablePlotHeight() == 216)
+        #expect(above == 31)
+        #expect(below == 27)
+        #expect(abs(above - below) <= 5)
+    }
+
+    @Test func exportChromeHidesTheNavigatorAndCardSurface() {
+        #expect(TimelineChrome.interactive.showsNavigator)
+        #expect(TimelineChrome.interactive.showsCardSurface)
+        #expect(TimelineChrome.interactive.axisHeight == 44)
+        #expect(!TimelineChrome.export.showsNavigator)
+        #expect(!TimelineChrome.export.showsCardSurface)
+        #expect(TimelineChrome.export.axisHeight == 20)
+    }
+
     @Test func combinedTimelineRailUsesOneCompactTouchTarget() {
         #expect(SleepTimelineGeometry.timeAxisHeight == 44)
         #expect(SleepTimelineGeometry.timeLabelBandHeight == 20)

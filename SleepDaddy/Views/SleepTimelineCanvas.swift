@@ -17,8 +17,8 @@ struct SleepTimelineCanvasVerticalLayout: Equatable, Sendable {
     /// both the top padding and the combined rail; the rendered plot frame excludes the rail.
     let geometryHeight: CGFloat
 
-    init(totalHeight: CGFloat) {
-        plotHeight = max(1.0, totalHeight - SleepTimelineGeometry.timeAxisHeight)
+    init(totalHeight: CGFloat, chrome: TimelineChrome = .interactive) {
+        plotHeight = max(1.0, totalHeight - chrome.axisHeight)
         geometryHeight = totalHeight
     }
 }
@@ -29,6 +29,7 @@ public struct SleepTimelineCanvas: View {
     let viewportEnd: Date
     let selectedIntervalID: String?
     let isInteractive: Bool
+    let chrome: TimelineChrome
     let onSelectInterval: (NormalizedSleepInterval) -> Void
     let onUpdateViewport: (Date, Date) -> Void
 
@@ -49,6 +50,7 @@ public struct SleepTimelineCanvas: View {
         viewportEnd: Date,
         selectedIntervalID: String?,
         isInteractive: Bool = true,
+        chrome: TimelineChrome = .interactive,
         onSelectInterval: @escaping (NormalizedSleepInterval) -> Void = { _ in },
         onUpdateViewport: @escaping (Date, Date) -> Void = { _, _ in }
     ) {
@@ -57,6 +59,7 @@ public struct SleepTimelineCanvas: View {
         self.viewportEnd = viewportEnd
         self.selectedIntervalID = selectedIntervalID
         self.isInteractive = isInteractive
+        self.chrome = chrome
         self.onSelectInterval = onSelectInterval
         self.onUpdateViewport = onUpdateViewport
 
@@ -70,7 +73,10 @@ public struct SleepTimelineCanvas: View {
             let totalHeight = proxy.size.height
             let labelWidth: CGFloat = 68.0
             let plotWidth = max(1.0, totalWidth - labelWidth)
-            let verticalLayout = SleepTimelineCanvasVerticalLayout(totalHeight: totalHeight)
+            let verticalLayout = SleepTimelineCanvasVerticalLayout(
+                totalHeight: totalHeight,
+                chrome: chrome
+            )
 
             let liveViewport = interaction.liveViewport
             let geom = SleepTimelineGeometry(
@@ -78,7 +84,8 @@ public struct SleepTimelineCanvas: View {
                 totalEnd: night.timelineEnd,
                 viewport: liveViewport,
                 canvasWidth: plotWidth,
-                canvasHeight: verticalLayout.geometryHeight
+                canvasHeight: verticalLayout.geometryHeight,
+                chrome: chrome
             )
 
             let displayedStages = SleepTimelineGeometry.defaultDisplayedStages
@@ -128,7 +135,8 @@ public struct SleepTimelineCanvas: View {
                                 totalEnd: night.timelineEnd,
                                 viewport: liveViewport,
                                 canvasWidth: canvasSize.width,
-                                canvasHeight: verticalLayout.geometryHeight
+                                canvasHeight: verticalLayout.geometryHeight,
+                                chrome: chrome
                             )
 
                             // 1. Guideline rows
@@ -143,7 +151,7 @@ public struct SleepTimelineCanvas: View {
                             // 2. In Bed background band
                             let inBedIntervals = night.rawIntervals.filter { $0.stage == .inBed }
                             if !inBedIntervals.isEmpty {
-                                let bandY = SleepTimelineGeometry.topPadding
+                                let bandY = chrome.topPadding
                                 let lastStage = displayedStages.last ?? .deep
                                 let lastYCenter = cGeom.yCenterPosition(for: lastStage, displayedStages: displayedStages)
                                 let rHeight = cGeom.rowHeight(displayedStagesCount: displayedStages.count)
@@ -331,16 +339,15 @@ public struct SleepTimelineCanvas: View {
                     CombinedTimelineRail(
                         night: night,
                         viewport: liveViewport,
-                        isInteractive: isInteractive && timelineInteractionEnabled
+                        isInteractive: isInteractive && timelineInteractionEnabled,
+                        chrome: chrome
                     ) { newViewport in
                         onUpdateViewport(newViewport.start, newViewport.end)
                     }
                 }
             }
         }
-        .background(Color(UIColor.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .modifier(TimelineSurface(isVisible: chrome.showsCardSurface))
         .onChange(of: night.id) { _, _ in
             cancelInteraction()
         }
@@ -365,6 +372,26 @@ public struct SleepTimelineCanvas: View {
             if invalidateRecognizers {
                 gestureResetGeneration &+= 1
             }
+        }
+    }
+}
+
+/// The rounded, shadowed surface the timeline draws itself on when it is a card on screen.
+///
+/// Suppressed for export, where `ShareTimelineCardView` supplies the only surface — nesting
+/// the two produces a visible card-inside-a-card.
+private struct TimelineSurface: ViewModifier {
+    let isVisible: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isVisible {
+            content
+                .background(Color(UIColor.systemBackground))
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
+        } else {
+            content
         }
     }
 }

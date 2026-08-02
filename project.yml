@@ -73,6 +73,8 @@ schemes:
     build:
       targets:
         SleepDaddy: all
+    run:
+      debugEnabled: false
     test:
       targets:
         - SleepDaddyTests
