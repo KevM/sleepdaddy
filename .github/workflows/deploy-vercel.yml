@@ -24,6 +24,11 @@ jobs:
       name: production
       url: https://sleepdaddy.app
 
+    # Set default working directory to ./web where vercel.json and site assets reside
+    defaults:
+      run:
+        working-directory: ./web
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
