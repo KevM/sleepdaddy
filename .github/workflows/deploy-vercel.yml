@@ -16,48 +16,44 @@ concurrency:
   group: 'vercel-deploy'
   cancel-in-progress: false
 
+env:
+  # Project settings live on Vercel; the CLI resolves them from these IDs.
+  # Root Directory is configured as `web` in the Vercel project, so every
+  # command below runs from the repo root and Vercel scopes into web/ itself.
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
 jobs:
   deploy:
     name: Deploy Production Web App to Vercel
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://sleepdaddy.app
-
-    # Set default working directory to ./web where vercel.json and site assets reside
-    defaults:
-      run:
-        working-directory: ./web
+      url: https://sleepdaddy.fm.rodeo
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@39370e3970a6d050c080011e4d35e03d1d393416 # v4.1.0
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install Vercel CLI
-        run: npm install -g vercel@39.3.0
+        run: npm install -g vercel@58.4.4
 
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build Vercel Project Artifacts
-        run: vercel build --prod
+        run: vercel build --prod --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --prod
+        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
