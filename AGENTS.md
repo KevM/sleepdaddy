@@ -8,7 +8,7 @@ SleepDaddy is a read-only iOS application for inspecting HealthKit sleep data in
 
 ## Key Principles & Conventions
 
-1. **Swift 6 & Native SwiftUI**: iOS 26+ target built with modern SwiftUI and Swift 6 concurrency features.
+1. **Swift 6 & Native SwiftUI**: iOS 18+ target built with modern SwiftUI and Swift 6 concurrency features. Build against the latest iOS SDK, but keep runtime API usage within iOS 18 or guard it with `@available`/`#available`.
 2. **XcodeGen Managed**: Do NOT commit `SleepDaddy.xcodeproj` or `Info.plist` files. Modify `project.yml` when adding new frameworks, targets, or Info.plist configuration, then run `xcodegen generate`.
 3. **Read-Only HealthKit**: HealthKit is read-only. Never add write/update code for HealthKit data. Local record exclusions and preferences are persisted locally in `UserDefaults` (`SleepPreferences` / `PreferencesStore`).
 4. **Swift Testing**: Unit tests use the modern `import Testing` framework (`@Test` functions and `#expect(...)` assertions).

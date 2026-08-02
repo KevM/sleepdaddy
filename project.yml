@@ -2,7 +2,7 @@ name: SleepDaddy
 options:
   bundleIdPrefix: fm.rodeo
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "18.0"
   xcodeVersion: "27.0"
 settings:
   base:

@@ -22,7 +22,7 @@ Its primary experience is a zoomable, pannable sleep-stage timeline supported by
 
 - **Language**: Swift 6
 - **UI Framework**: Native SwiftUI
-- **Minimum Target**: iOS 26.0
+- **Minimum Target**: iOS 18.0
 - **Project Generator**: [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`project.yml`)
 - **Testing**: Swift Testing framework (`import Testing`)
 
