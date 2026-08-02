@@ -187,6 +187,8 @@ struct NightBrowserModelTests {
         guard await store.waitForFetchCount(2) else {
             Issue.record("Timed out waiting for the foreground refresh to start")
             refresh.cancel()
+            await store.resumeFetch()
+            await refresh.value
             return
         }
 
@@ -231,6 +233,8 @@ struct NightBrowserModelTests {
         guard await store.waitForFetchCount(2) else {
             Issue.record("Timed out waiting for the first foreground refresh to start")
             firstRefresh.cancel()
+            await store.resumeFetch()
+            await firstRefresh.value
             return
         }
         let overlappingRefresh = Task {
@@ -420,6 +424,7 @@ private actor BlockingSleepStore: HealthKitSleepStoreProtocol {
     }
 
     func resumeFetch() {
+        blocksNextFetch = false
         fetchContinuation?.resume()
         fetchContinuation = nil
     }
