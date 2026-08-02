@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support &amp; FAQ — SleepDaddy HealthKit Sleep Inspector</title>
+  <meta name="description" content="SleepDaddy Support & Help Center — FAQs, HealthKit authorization guides, device source filtering, and timeline inspection support.">
+  <link rel="canonical" href="https://sleepdaddy.app/support">
+  <meta property="og:url" content="https://sleepdaddy.app/support">
+  <meta property="og:title" content="Support &amp; FAQ — SleepDaddy HealthKit Sleep Inspector">
+  <meta property="og:description" content="SleepDaddy Support &amp; Help Center — FAQs, HealthKit authorization guides, device source filtering, and timeline inspection support.">
+  <meta property="og:image" content="https://sleepdaddy.app/app-icon-180x180.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="stylesheet" href="index.css">
+  <script src="main.js" defer></script>
+</head>
+<body>
+
+  <!-- Ambient Hero Glow -->
+  <div class="hero-glow"></div>
+
+  <!-- Header & Sticky Navigation -->
+  <header class="site-header">
+    <div class="nav-container">
+      <a href="/" class="logo">
+        <img src="app-icon-64x64.png" alt="SleepDaddy App Icon" class="logo-img">
+        <span>SleepDaddy</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/#features">Features</a></li>
+        <li><a href="/#simulator">Live Demo</a></li>
+        <li><a href="privacy">Privacy</a></li>
+        <li><a href="support" class="active">Support</a></li>
+      </ul>
+      <a href="TESTFLIGHT_URL" target="_blank" rel="noopener noreferrer" class="btn-primary btn-testflight">Join TestFlight</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Page Header Section -->
+    <section class="hero container hero-compact">
+      <div class="badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        Help &amp; Support
+      </div>
+      <h1 class="hero-title">SleepDaddy Support Center</h1>
+      <p class="hero-description">
+        Comprehensive guides, technical explanations, and troubleshooting steps to help you master high-definition sleep data inspection.
+      </p>
+    </section>
+
+    <!-- Support Accordion FAQ Section -->
+    <section class="section container section-compact">
+      <div class="accordion-group">
+
+        <!-- Section 1: Getting Started with HealthKit Setup -->
+        <details class="accordion-item" open id="getting-started">
+          <summary class="accordion-summary">
+            <span>1. Getting Started with HealthKit Permissions</span>
+            <div class="accordion-summary-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="accordion-content">
+            <p>
+              When launching SleepDaddy for the first time, iOS will prompt you to authorize read access to Apple HealthKit sleep data.
+            </p>
+            <p><strong>To verify or update permissions manually:</strong></p>
+            <ol>
+              <li>Open the <strong>Settings</strong> app on your iPhone.</li>
+              <li>Navigate to <strong>Health &gt; Data Access &amp; Devices</strong>.</li>
+              <li>Select <strong>SleepDaddy</strong> from the app list.</li>
+              <li>Ensure <strong>Sleep</strong> read permission is turned ON.</li>
+            </ol>
+            <p>
+              <em>Note: SleepDaddy is 100% read-only. It never requests or requires permission to write health data back to Apple Health.</em>
+            </p>
+          </div>
+        </details>
+
+        <!-- Section 2: Source Filtering & Multi-Device Conflicts -->
+        <details class="accordion-item" id="source-filtering">
+          <summary class="accordion-summary">
+            <span>2. Source Filtering &amp; Multi-Device Conflicts</span>
+            <div class="accordion-summary-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="accordion-content">
+            <p>
+              If you track sleep with multiple devices (such as an Apple Watch, an Oura Ring, or a bedside mattress sensor), Apple Health stores simultaneous sleep records from each source.
+            </p>
+            <p>
+              SleepDaddy provides a dedicated <strong>Source Filter</strong> menu in the top timeline toolbar:
+            </p>
+            <ul>
+              <li><strong>All Sources:</strong> Displays combined sleep records across all active wearables and apps. Conflicts and overlapping samples are highlighted with warning indicators.</li>
+              <li><strong>Isolate Device (e.g., Apple Watch Only):</strong> Filters the timeline to render records exclusively from your selected hardware or app, giving you a clean, single-source analysis.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- Section 3: Brief Awake Spike Filtering -->
+        <details class="accordion-item" id="awake-smoothing">
+          <summary class="accordion-summary">
+            <span>3. Brief Awake Spike Filtering (Micro-Awakenings)</span>
+            <div class="accordion-summary-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="accordion-content">
+            <p>
+              Modern wearables frequently register tiny micro-awakenings (lasting 30 to 60 seconds) during normal REM and Core sleep transitions. While biologically normal, these brief spikes can clutter timeline visuals.
+            </p>
+            <p>
+              SleepDaddy includes an optional <strong>Hide Awake ≤ 1m</strong> toggle:
+            </p>
+            <ul>
+              <li>When enabled, isolated awake intervals lasting 60 seconds or fewer are visually smoothed out to provide a cleaner overview of your core sleep architecture.</li>
+              <li>Total awake metrics in the inspector detail sheet remain precise, while preventing visual fragmentation of continuous sleep cycles.</li>
+            </ul>
+          </div>
+        </details>
+
+        <!-- Section 4: Adaptive Night Boundaries -->
+        <details class="accordion-item" id="night-boundaries">
+          <summary class="accordion-summary">
+            <span>4. Adaptive Night Boundaries (7 PM – 7 AM)</span>
+            <div class="accordion-summary-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="accordion-content">
+            <p>
+              Standard calendar midnight cutoffs (12:00 AM) artificially split a single night's sleep across two different days. SleepDaddy solves this with <strong>Adaptive Night Boundaries</strong> (defaulting to a 7 PM to 7 AM window).
+            </p>
+            <p>
+              Sleep intervals occurring between 7 PM on Evening A and 7 AM on Morning B are logically grouped into a single cohesive "Night Assembly", making it effortless to inspect whole-night sleep metrics without day-boundary fragmentation.
+            </p>
+          </div>
+        </details>
+
+        <!-- Section 5: Inspecting Sleep Intervals -->
+        <details class="accordion-item" id="interval-inspection">
+          <summary class="accordion-summary">
+            <span>5. Inspecting Sleep Intervals</span>
+            <div class="accordion-summary-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="accordion-content">
+            <p>
+              Want to see exact timestamps or metadata for a specific sleep block? You can inspect any interval directly from the timeline:
+            </p>
+            <ol>
+              <li>Tap or click on any sleep stage block (REM, Deep, Core, or Awake) in the <strong>Sleep Timeline Canvas</strong>.</li>
+              <li>The <strong>Interval Inspector Sheet</strong> will display the precise start time, end time, duration, and originating HealthKit source tracker.</li>
+            </ol>
+            <p>
+              This allows you to verify exact stage transitions and cross-reference sample timestamps down to the second.
+            </p>
+          </div>
+        </details>
+
+        <!-- Section 6: Exporting & Sharing Timeline Viewports -->
+        <details class="accordion-item" id="exporting-sharing">
+          <summary class="accordion-summary">
+            <span>6. Exporting &amp; Sharing Timeline Cards</span>
+            <div class="accordion-summary-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="accordion-content">
+            <p>
+              SleepDaddy allows you to render and share beautiful visual snapshots of your current zoom viewport.
+            </p>
+            <p>
+              Tap the <strong>Share</strong> button in the timeline header to render a high-resolution <code>ShareTimelineCardView</code> graphic. You can send it directly to AirDrop, Messages, photos, or present it to sleep clinicians and coaches.
+            </p>
+          </div>
+        </details>
+
+        <!-- Section 7: Contact Support / Feedback -->
+        <details class="accordion-item" id="contact-support">
+          <summary class="accordion-summary">
+            <span>7. Contact Support &amp; Beta Feedback</span>
+            <div class="accordion-summary-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </div>
+          </summary>
+          <div class="accordion-content">
+            <p>
+              Have a question, feature request, or bug report? We actively monitor community feedback during our public beta.
+            </p>
+            <ul>
+              <li><strong>Email Support:</strong> Send direct inquiries to <a href="mailto:support@sleepdaddy.app">support@sleepdaddy.app</a> for help.</li>
+              <li><strong>GitHub Issues:</strong> Submit technical bug reports or feature requests on our <a href="https://github.com/kevm/sleepdaddy/issues" target="_blank" rel="noopener noreferrer">GitHub Issues page</a>.</li>
+              <li><strong>TestFlight Feedback:</strong> Submit feedback directly via the Apple TestFlight app by taking a screenshot and tapping "Share Beta Feedback".</li>
+            </ul>
+          </div>
+        </details>
+
+      </div>
+
+      <!-- Contact Support CTA Card -->
+      <div class="contact-card contact-card-spaced">
+        <div class="doc-card-icon doc-card-icon-lg">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h2>Need Additional Help?</h2>
+        <p class="doc-lead-text">
+          Explore our open-source repository or connect with fellow sleep data enthusiasts via email or GitHub.
+        </p>
+        <div class="action-group">
+          <a href="mailto:support@sleepdaddy.app" class="btn-primary">
+            Email Support (support@sleepdaddy.app)
+          </a>
+          <a href="https://github.com/kevm/sleepdaddy" target="_blank" rel="noopener noreferrer" class="btn-secondary">
+            Visit GitHub Repository
+          </a>
+          <a href="privacy" class="btn-secondary">
+            Read Privacy Policy
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <div class="footer-info">
+        <a href="/" class="logo logo-sm">
+          <img src="app-icon-64x64.png" alt="SleepDaddy App Icon" class="logo-img logo-img-sm">
+          <span>SleepDaddy</span>
+        </a>
+        <p class="footer-copy">
+          © 2026 SleepDaddy. All rights reserved. Read-only HealthKit sleep inspector for iOS.
+        </p>
+      </div>
+
+      <ul class="footer-links">
+        <li><a href="privacy">Privacy Policy</a></li>
+        <li><a href="support" class="active">Support &amp; FAQ</a></li>
+        <li><a href="https://github.com/kevm/sleepdaddy" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+      </ul>
+
+      <div class="build-badge">
+        iOS 26+ • Swift 6
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
