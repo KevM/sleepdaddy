@@ -113,8 +113,6 @@ public struct NightHeaderView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                             .foregroundColor(.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
                         Image(systemName: "chevron.down")
                             .font(.caption2)
                             .fontWeight(.medium)
@@ -124,8 +122,6 @@ public struct NightHeaderView: View {
                         .font(.subheadline)
                         .fontWeight(.medium)
                         .foregroundColor(night.hasSleepData ? .accentColor : .secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
                 }
                 .padding(.vertical, 4)
                 .padding(.horizontal, 12)
