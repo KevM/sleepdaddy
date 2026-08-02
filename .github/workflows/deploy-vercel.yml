@@ -4,9 +4,10 @@ on:
   push:
     branches:
       - main
+    # Site content only. iOS app changes must never redeploy the website.
+    # Use the manual workflow_dispatch trigger to test changes to this file.
     paths:
       - 'web/**'
-      - '.github/workflows/deploy-vercel.yml'
   workflow_dispatch:
 
 permissions:
