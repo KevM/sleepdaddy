@@ -129,7 +129,7 @@ intentional margin where 38.5 against 22.5 reads as a gutter.
 ```
 SleepDaddy                          caption, bold, accent
 7h 51m asleep                       title, bold — the hero
-Fri, Jul 31 · 10:45 PM – 7:17 AM    caption2, secondary
+Fri, Jul 31, 2026 · 10:45 PM – 7:17 AM   caption2, secondary
 Sources: Apple Watch                only when a filter is applied
 ────────────────────────────────
 timeline canvas (chrome: .export)
@@ -165,15 +165,17 @@ band) while `.asleepUnspecified` lives in `night.displayLaneIntervals`. It then 
 stages, a second legend row is structurally impossible rather than merely unlikely.
 
 ```swift
-/// "Fri, Jul 31" — or "Fri, Jul 31, 2025" when the night falls outside the current year.
+/// "Fri, Jul 31, 2026".
 static func formattedDateHeader(
-    _ date: Date, now: Date = .now, calendar: Calendar = .current
+    _ date: Date, calendar: Calendar = .current, locale: Locale = .current
 ) -> String
 ```
 
 This replaces the existing `.full` `DateFormatter` style, which produced
-`"Friday, July 31, 2026"`. The injected `now` and `calendar` exist so the year rule is
-testable without depending on the wall clock.
+`"Friday, July 31, 2026"` and cost the card most of a line. Abbreviating the weekday and month
+recovers that width; the year stays, because a shared image outlives the moment it was taken
+and the reader has no other cue for which year the night belongs to. The injected `calendar`
+and `locale` exist so the output is testable without depending on the device's settings.
 
 ### 5. Time formatting
 
@@ -214,8 +216,8 @@ reference PNG.
   only, in-bed only, both. Expected results `[]`, `[.asleepUnspecified]`, `[.inBed]`,
   `[.asleepUnspecified, .inBed]`. The two-stage case pins the ordering, which follows
   `SleepStage.allCases`.
-- `formattedDateHeader` omits the year for a night inside `now`'s year and includes it for a
-  night outside it.
+- `formattedDateHeader` renders `"Fri, Jul 31, 2026"` under an injected `en_US` locale and
+  fixed time zone, and keeps the correct year for a night in a previous year.
 - `formattedTimeRange` for a 10:45 PM → 7:17 AM pair crossing midnight returns exactly
   `"10:45 PM – 7:17 AM"` under an injected `en_US` locale and fixed time zone. This is the
   regression lock for the `DateIntervalFormatter` bug; asserting the full string rather than
@@ -238,6 +240,7 @@ reference PNG.
 - Threading `chrome` through four initializers touches files the main screen depends on. The
   `.interactive` default is what keeps that safe; any call site that fails to compile is a site
   that was relying on a static the change intends to parameterize.
-- Dropping the year from the date header loses information on exports of old nights. The
-  current-year rule confines that to nights the user deliberately navigated back to, and those
-  still print the year.
+- The header line now carries date, year and clock range in one `caption2` run
+  (`"Fri, Jul 31, 2026 · 10:45 PM – 7:17 AM"`). At the card's fixed 540pt width this fits
+  comfortably, but a long locale format could wrap it. The card should be checked in the
+  preview under at least one non-`en_US` locale before release.
