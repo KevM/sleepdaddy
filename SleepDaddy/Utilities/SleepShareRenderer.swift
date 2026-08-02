@@ -8,7 +8,7 @@ public final class SleepShareRenderer: @unchecked Sendable {
         night: AssembledNight,
         viewportStart: Date,
         viewportEnd: Date,
-        sourceFilterDescription: String
+        sourceFilterDescription: String?
     ) -> UIImage? {
         let card = ShareTimelineCardView(
             night: night,

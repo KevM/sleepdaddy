@@ -80,4 +80,72 @@ struct ShareCardContentTests {
 
         #expect(header == "Thu, Jul 31, 2025")
     }
+
+    private static func night(
+        with stages: [SleepStage]
+    ) -> AssembledNight {
+        let base = Self.date(year: 2026, month: 7, day: 31, hour: 22, minute: 0)
+        var intervals: [NormalizedSleepInterval] = []
+        for (offset, stage) in stages.enumerated() {
+            intervals.append(
+                NormalizedSleepInterval(
+                    id: "\(stage.rawValue)-\(offset)",
+                    startDate: base.addingTimeInterval(Double(offset) * 3600),
+                    endDate: base.addingTimeInterval(Double(offset + 1) * 3600),
+                    stage: stage,
+                    sourceName: "Apple Watch",
+                    sourceIdentifier: "com.apple.health"
+                )
+            )
+        }
+
+        return AssembledNight(
+            date: base,
+            coreWindowStart: base,
+            coreWindowEnd: base.addingTimeInterval(8 * 3600),
+            detectedStart: base,
+            detectedEnd: base.addingTimeInterval(8 * 3600),
+            rawIntervals: intervals,
+            primaryLaneIntervals: intervals.filter { $0.stage != .inBed },
+            displayLaneIntervals: intervals.filter { $0.stage != .inBed },
+            conflicts: [],
+            summary: .empty,
+            hasSleepData: true
+        )
+    }
+
+    @Test func legendIsEmptyWhenTheAxisAlreadyLabelsEveryStage() {
+        let stages = ShareTimelineCardView.legendStages(
+            for: Self.night(with: [.awake, .rem, .core, .deep])
+        )
+
+        #expect(stages.isEmpty)
+    }
+
+    @Test func legendNamesUnspecifiedSleepWhenPresent() {
+        let stages = ShareTimelineCardView.legendStages(
+            for: Self.night(with: [.core, .asleepUnspecified])
+        )
+
+        #expect(stages == [.asleepUnspecified])
+    }
+
+    @Test func legendNamesInBedWhenPresent() {
+        let stages = ShareTimelineCardView.legendStages(
+            for: Self.night(with: [.core, .inBed])
+        )
+
+        #expect(stages == [.inBed])
+    }
+
+    /// Two chips is the maximum the rule can ever produce, which is what makes a second
+    /// legend row structurally impossible rather than merely unlikely. The order follows
+    /// `SleepStage.allCases`.
+    @Test func legendNamesBothUnlabelledStagesInDeclarationOrder() {
+        let stages = ShareTimelineCardView.legendStages(
+            for: Self.night(with: [.core, .inBed, .asleepUnspecified])
+        )
+
+        #expect(stages == [.asleepUnspecified, .inBed])
+    }
 }

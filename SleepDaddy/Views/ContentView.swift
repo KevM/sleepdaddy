@@ -227,7 +227,11 @@ public struct ContentView: View {
 
     private func exportAndShare(night: AssembledNight) {
         let renderer = SleepShareRenderer()
-        let desc = model.preferences.selectedSourceIdentifiers.isEmpty ? "All Sources" : model.preferences.selectedSourceIdentifiers.compactMap { model.availableSources[$0] }.joined(separator: ", ")
+        let desc: String? = model.preferences.selectedSourceIdentifiers.isEmpty
+            ? nil
+            : model.preferences.selectedSourceIdentifiers
+                .compactMap { model.availableSources[$0] }
+                .joined(separator: ", ")
         if let image = renderer.renderShareImage(
             night: night,
             viewportStart: model.viewportStart,
