@@ -1,7 +1,7 @@
 # Combined Timeline Rail Design
 
-**Project:** SleepDaddy  
-**Scope:** Portrait and landscape selected-night timelines  
+**Project:** SleepDaddy
+**Scope:** Portrait and landscape selected-night timelines
 **Status:** Approved
 
 ## Summary
