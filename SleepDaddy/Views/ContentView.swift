@@ -11,6 +11,7 @@ enum SelectedNightLayoutMode: Equatable {
 
 public struct ContentView: View {
     @State private var model: NightBrowserModel
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     public init(model: NightBrowserModel? = nil) {
         self._model = State(initialValue: model ?? NightBrowserModel())
@@ -94,32 +95,47 @@ public struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 case .loaded:
-                    VStack(spacing: 0) {
-                        if let night = model.selectedAssembledNight {
-                            let dateRange: ClosedRange<Date>? = {
-                                guard let first = model.assembledNights.first?.date,
-                                      let last = model.assembledNights.last?.date,
-                                      first <= last else { return nil }
-                                return first...last
-                            }()
+                    let layoutMode = SelectedNightLayoutMode.resolve(
+                        verticalSizeClass: verticalSizeClass
+                    )
+                    let dateRange: ClosedRange<Date>? = {
+                        guard let first = model.assembledNights.first?.date,
+                              let last = model.assembledNights.last?.date,
+                              first <= last else { return nil }
+                        return first...last
+                    }()
 
-                            NightHeaderView(
-                                night: night,
-                                canGoPrevious: model.canSelectPreviousNight,
-                                canGoNext: model.canSelectNextNight,
-                                dateRange: dateRange,
-                                onPrevious: model.selectPreviousNight,
-                                onNext: model.selectNextNight,
-                                onSelectDate: model.selectNight
+                    VStack(spacing: 0) {
+                        if layoutMode == .standard {
+                            if let night = model.selectedAssembledNight {
+                                NightHeaderView(
+                                    night: night,
+                                    canGoPrevious: model.canSelectPreviousNight,
+                                    canGoNext: model.canSelectNextNight,
+                                    dateRange: dateRange,
+                                    onPrevious: model.selectPreviousNight,
+                                    onNext: model.selectNextNight,
+                                    onSelectDate: model.selectNight
+                                )
+                            }
+
+                            Divider()
+                                .padding(.vertical, 8)
+
+                            // Selected Night Detail
+                            SelectedNightDetailView(
+                                model: model,
+                                layoutMode: layoutMode,
+                                dateRange: dateRange
+                            )
+                            .padding(.vertical, 8)
+                        } else {
+                            SelectedNightDetailView(
+                                model: model,
+                                layoutMode: layoutMode,
+                                dateRange: dateRange
                             )
                         }
-
-                        Divider()
-                            .padding(.vertical, 8)
-
-                        // Selected Night Detail
-                        SelectedNightDetailView(model: model)
-                            .padding(.vertical, 8)
                     }
                     .frame(
                         maxWidth: .infinity,

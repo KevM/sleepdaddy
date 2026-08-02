@@ -530,6 +530,56 @@ struct SnapshotTests {
         #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: .regular) == .standard)
         #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: nil) == .standard)
     }
+
+    @Test func immersiveTimelineFillsAvailableHeightWithoutCollapsing() {
+        #expect(
+            SelectedNightDetailView.immersiveTimelineHeight(
+                availableHeight: 320,
+                navigatorHeight: 64
+            ) == 250
+        )
+        #expect(
+            SelectedNightDetailView.immersiveTimelineHeight(
+                availableHeight: 250,
+                navigatorHeight: 64
+            ) == 220
+        )
+    }
+
+    @Test @MainActor func immersiveEmptyNightKeepsNavigationAvailable() async {
+        var fixtureCalendar = Calendar(identifier: .gregorian)
+        fixtureCalendar.timeZone = .current
+        let now = fixtureCalendar.date(
+            from: DateComponents(year: 2026, month: 7, day: 25, hour: 12)
+        )!
+        let suiteName = "SnapshotTests.ImmersiveEmptyNight"
+        let testDefaults = UserDefaults(suiteName: suiteName)!
+        testDefaults.removePersistentDomain(forName: suiteName)
+        let model = NightBrowserModel(
+            store: DelayedEmptySleepStore(),
+            preferencesStore: PreferencesStore(userDefaults: testDefaults),
+            now: { now }
+        )
+        await model.loadData()
+
+        let detail = SelectedNightDetailView(
+            model: model,
+            layoutMode: .immersiveLandscape,
+            dateRange: model.assembledNights.first!.date...model.assembledNights.last!.date
+        )
+        let renderer = ImageRenderer(
+            content: detail
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 852)
+        )
+        renderer.scale = 2
+        guard let image = renderer.uiImage, let cgImage = image.cgImage else {
+            Issue.record("Failed to render immersive empty-night composition")
+            return
+        }
+
+        #expect(cgImage.height > 560, "Navigation header should render above the 240-point empty state")
+    }
 }
 
 private struct NightDetailCompositeView: View {
