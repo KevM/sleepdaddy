@@ -181,8 +181,8 @@ public struct SleepTimelineCanvas: View {
                             if segment.isConnector {
                                 context.stroke(
                                     segmentPath,
-                                    with: .color(segment.stage.themeColor.opacity(0.4)),
-                                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                                    with: .color(segment.stage.themeColor.opacity(0.55)),
+                                    style: StrokeStyle(lineWidth: 2, lineCap: .butt)
                                 )
                             } else {
                                 context.stroke(
