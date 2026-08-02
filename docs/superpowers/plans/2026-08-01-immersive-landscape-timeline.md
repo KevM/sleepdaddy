@@ -387,3 +387,147 @@ Expected: only the three Swift source/test files are modified; no generated proj
 git add SleepDaddyTests/SnapshotTests.swift
 git commit -m "test: cover immersive landscape timeline"
 ```
+
+
+### Task 5: Move Landscape Date and Duration into the Toolbar
+
+**Files:**
+- Create: `SleepDaddy/Views/LandscapeNightToolbarView.swift`
+- Create: `SleepDaddy/Views/TimelineNightNavigationControls.swift`
+- Modify: `SleepDaddy/Views/ContentView.swift`
+- Modify: `SleepDaddy/Views/NightHeaderView.swift`
+- Modify: `SleepDaddy/Views/SelectedNightDetailView.swift`
+- Modify: `SleepDaddyTests/SnapshotTests.swift`
+
+**Interfaces:**
+- Produces: `LandscapeNightToolbarView`, containing one compact date-picker button and one separate, non-interactive duration label.
+- Produces: `LandscapeNightToolbarPresencePreferenceKey`, used by hosted tests to observe the rendered toolbar component.
+- Produces: `TimelineNightNavigationControls`, containing only the 44-point previous/next edge buttons and accessibility actions.
+- Consumes: existing `NightHeaderView.formattedDate(_:locale:timeZone:)`, date-range selection semantics, model callbacks, and `AccessibilityHelpers.formattedTimeInterval`.
+- Removes: `NightHeaderView.Presentation.timelineOverlay` and the immersive timeline's date-header overlay. Portrait retains `.standalone` behavior unchanged.
+
+- [ ] **Step 1: Write failing semantic toolbar tests**
+
+Update the two loaded landscape hosted tests so their ready state captures and requires all of these invariants:
+
+```swift
+#expect(layoutMode == .immersiveLandscape)
+#expect(landscapeToolbarIsPresent)
+#expect(headerPresentation == nil)
+#expect(timelineBounds.height >= 220)
+```
+
+Add a focused composition test that renders `LandscapeNightToolbarView` and captures two separate semantic elements: an interactive date picker and a non-interactive duration label. Assert the date button accessibility label contains only the formatted date and its hint says it chooses a date; assert the duration label has its own accessibility label.
+
+Retain the hosted portrait test's `.standard` and `.standalone` assertions.
+
+- [ ] **Step 2: Run the focused tests and verify RED**
+
+Run:
+
+```bash
+xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData -only-testing:'SleepDaddyTests/SnapshotTests/loadedLandscapeKeepsImmersiveTimeline()' -only-testing:'SleepDaddyTests/SnapshotTests/loadedLandscapeAccessibilityKeepsImmersiveTimeline()' -only-testing:'SleepDaddyTests/SnapshotTests/landscapeToolbarSeparatesDateAndDuration()'
+```
+
+Expected: compilation fails because `LandscapeNightToolbarView` and its semantic presence signal do not exist, and the current immersive composition still reports `.timelineOverlay`.
+
+- [ ] **Step 3: Extract shared formatting without changing portrait**
+
+Make `NightHeaderView.durationFormatted` available through an internal static helper:
+
+```swift
+static func formattedDuration(for night: AssembledNight) -> String {
+    night.hasSleepData
+        ? AccessibilityHelpers.formattedTimeInterval(night.summary.totalSleepDuration)
+        : "No Data"
+}
+```
+
+Keep the existing portrait date button's combined date/duration presentation and accessibility label unchanged by calling the helper from its existing layout.
+
+- [ ] **Step 4: Implement the standalone landscape toolbar component**
+
+Create `LandscapeNightToolbarView.swift`. It accepts:
+
+```swift
+let night: AssembledNight
+let dateRange: ClosedRange<Date>?
+let onSelectDate: (Date) -> Void
+```
+
+Its body is a compact `HStack` in the principal toolbar position:
+
+- A date-only `Button` showing `NightHeaderView.formattedDate` and a small downward chevron.
+- A separate accent-colored `Text` showing `NightHeaderView.formattedDuration(for:)`.
+- The date button opens the same medium graphical date-picker sheet and dismisses after selection.
+- The date button accessibility label is only the formatted date and its hint is “Double tap to choose a date.”
+- The duration label has an independent accessibility label such as “Sleep duration, 10 hours 54 minutes.”
+- Emit `LandscapeNightToolbarPresencePreferenceKey = true` from the rendered component for hosted semantic verification.
+- Use natural toolbar sizing; do not add `maxWidth: .infinity`, fixed screen-width frames, or a Dynamic Type cap.
+
+- [ ] **Step 5: Put the landscape component in the principal toolbar**
+
+In `ContentView`, compute the current layout mode and date range once in private properties usable by both content and toolbar. Keep `.navigationTitle("SleepDaddy")` for standard mode and non-loaded states. Add:
+
+```swift
+if currentLayoutMode == .immersiveLandscape,
+   let night = model.selectedAssembledNight {
+    ToolbarItem(placement: .principal) {
+        LandscapeNightToolbarView(
+            night: night,
+            dateRange: selectedDateRange,
+            onSelectDate: model.selectNight
+        )
+    }
+}
+```
+
+Do not modify the existing trailing filter/share/settings `ToolbarItem`.
+
+- [ ] **Step 6: Replace the timeline header overlay with edge navigation**
+
+Create `TimelineNightNavigationControls.swift` with the same previous/next button actions, disabled appearance, 44-point hit targets, accessibility labels, hints, and custom accessibility actions currently used by `NightHeaderView`. Its visual body is:
+
+```swift
+HStack {
+    previousButton
+    Spacer()
+    nextButton
+}
+```
+
+In immersive loaded detail, remove the `NightHeaderView(... presentation: .timelineOverlay ...)` overlay and replace it with `TimelineNightNavigationControls`, vertically centered over the timeline with narrow edge-only hit regions. The canvas remains interactive everywhere except the two 44-point button targets.
+
+For immersive empty nights, show the same edge navigation controls with the empty state rather than restoring the full standalone header. Keep loading behavior unchanged.
+
+Remove `.timelineOverlay` from `NightHeaderView.Presentation` and delete its material/shadow styling. `NightHeaderView` remains the portrait-only standalone header.
+
+- [ ] **Step 7: Run focused tests and verify GREEN**
+
+Run the command from Step 2 plus:
+
+```bash
+xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData -only-testing:'SleepDaddyTests/SnapshotTests/loadedPortraitUsesStandardComposition()' -only-testing:'SleepDaddyTests/SnapshotTests/immersiveEmptyNightUsesStandaloneNavigationHeader()'
+```
+
+Rename the empty-night test to reflect edge navigation rather than standalone-header behavior and assert the landscape toolbar is present while `NightHeaderPresentationPreferenceKey` remains nil.
+
+Expected: all selected tests PASS. Loaded landscape reports toolbar presence, no timeline header overlay, and timeline height at least 220 points. Portrait still reports `.standalone`.
+
+- [ ] **Step 8: Run full verification**
+
+```bash
+xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
+xcodebuild build -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
+git diff --check
+git status --short
+```
+
+Expected: 109 or more tests pass, build succeeds, and no generated project/plist or unrelated user files are staged.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add SleepDaddy/Views/LandscapeNightToolbarView.swift SleepDaddy/Views/TimelineNightNavigationControls.swift SleepDaddy/Views/ContentView.swift SleepDaddy/Views/NightHeaderView.swift SleepDaddy/Views/SelectedNightDetailView.swift SleepDaddyTests/SnapshotTests.swift
+git commit -m "feat: move landscape date into toolbar"
+```
