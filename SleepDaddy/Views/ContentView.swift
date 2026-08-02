@@ -11,6 +11,7 @@ enum SelectedNightLayoutMode: Equatable {
 
 public struct ContentView: View {
     @State private var model: NightBrowserModel
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     public init(model: NightBrowserModel? = nil) {
@@ -219,8 +220,8 @@ public struct ContentView: View {
                     ActivityViewController(activityItems: [img])
                 }
             }
-            .task {
-                await model.loadData()
+            .task(id: scenePhase) {
+                await model.handleScenePhaseChange(scenePhase)
             }
         }
     }
@@ -263,19 +264,23 @@ private func previewModel(hidesBriefAwakes: Bool,
 
 #Preview("Filter active") {
     ContentView(model: previewModel(hidesBriefAwakes: true))
+        .environment(\.scenePhase, .active)
 }
 
 #Preview("Filter active (dark)") {
     ContentView(model: previewModel(hidesBriefAwakes: true))
         .preferredColorScheme(.dark)
+        .environment(\.scenePhase, .active)
 }
 
 #Preview("No filter") {
     ContentView(model: previewModel(hidesBriefAwakes: false))
+        .environment(\.scenePhase, .active)
 }
 
 #Preview("HealthKit not authorized") {
     ContentView(model: previewModel(hidesBriefAwakes: false, isHealthKitAuthorized: false))
+        .environment(\.scenePhase, .active)
 }
 
 #endif

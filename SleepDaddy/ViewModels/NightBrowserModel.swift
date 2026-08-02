@@ -37,6 +37,7 @@ public final class NightBrowserModel: @unchecked Sendable {
     private let assembler = NightAssembler()
     private let now: @Sendable () -> Date
     private var allFetchedIntervals: [NormalizedSleepInterval] = []
+    private var isLoading = false
 
     public init(
         store: HealthKitSleepStoreProtocol = HealthKitSleepStore(),
@@ -55,10 +56,16 @@ public final class NightBrowserModel: @unchecked Sendable {
     }
 
     @MainActor
-    public func loadData() async {
-        appState = .loading
+    public func loadData(preservingNavigationState: Bool = false) async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
 
-        guard HKHealthStore.isHealthDataAvailable() || store is FixtureSleepStore else {
+        if appState != .loaded {
+            appState = .loading
+        }
+
+        guard HKHealthStore.isHealthDataAvailable() || !(store is HealthKitSleepStore) else {
             appState = .unavailable
             return
         }
@@ -86,28 +93,51 @@ public final class NightBrowserModel: @unchecked Sendable {
             }
             self.availableSources = sources
 
-            reassembleNights()
+            reassembleNights(preservingViewport: preservingNavigationState)
 
-            // Open to the most recent night with eligible sleep data
-            if let newest = assembledNights.last(where: { $0.hasSleepData }) {
-                self.selectedDate = newest.date
+            let selectionStillExists = assembledNights.contains {
+                calendar.isDate($0.date, inSameDayAs: selectedDate)
+            }
+
+            // Initial loads open to the most recent night. Foreground refreshes preserve
+            // the user's current date, viewport, and inspected interval while it remains
+            // inside the rebuilt overview window.
+            if preservingNavigationState && selectionStillExists {
+                // Keep the current navigation state.
+            } else if let newest = assembledNights.last(where: { $0.hasSleepData }) {
+                if !calendar.isDate(selectedDate, inSameDayAs: newest.date) {
+                    self.selectedDate = newest.date
+                }
             } else {
-                self.selectedDate = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+                let fallback = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+                if !calendar.isDate(selectedDate, inSameDayAs: fallback) {
+                    self.selectedDate = fallback
+                }
             }
 
             appState = .loaded
+        } catch where preservingNavigationState {
+            // Keep the last successfully loaded timeline visible when a foreground
+            // refresh encounters a transient HealthKit failure.
         } catch {
             appState = .error(error.localizedDescription)
         }
+    }
+
+    @MainActor
+    public func handleScenePhaseChange(_ scenePhase: ScenePhase) async {
+        guard scenePhase == .active else { return }
+        await loadData(preservingNavigationState: appState == .loaded)
     }
 
     public var selectedAssembledNight: AssembledNight? {
         assembledNights.first { Calendar.current.isDate($0.date, inSameDayAs: selectedDate) }
     }
 
-    /// - Parameter preservingViewport: pass `true` only when the change cannot move a night's
-    ///   bounds — a display-only preference. Source selection and the core window
-    ///   both shift `detectedStart` / `detectedEnd`, so those must re-derive the viewport.
+    /// - Parameter preservingViewport: pass `true` for display-only preferences that cannot
+    ///   move a night's bounds, or for a foreground refresh where preserving the user's
+    ///   navigation takes precedence even if newly fetched intervals move those bounds.
+    ///   Source selection and core-window changes must still re-derive the viewport.
     public func reassembleNights(preservingViewport: Bool = false) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now())
