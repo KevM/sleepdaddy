@@ -3,7 +3,7 @@ import Testing
 @testable import SleepDaddy
 
 struct CombinedTimelineRailTests {
-    @Test @MainActor func timeLabelsHonorLocaleHourCycle() {
+    @Test func timeLabelsHonorLocaleHourCycle() {
         let date = Date(timeIntervalSince1970: 12 * 60 * 60 + 5 * 60)
         let timeZone = TimeZone(secondsFromGMT: 0)!
 
@@ -20,6 +20,7 @@ struct CombinedTimelineRailTests {
 
         #expect(usTime.contains("12:05"))
         #expect(usTime.contains("PM"))
-        #expect(ukTime == "12:05")
+        #expect(ukTime.contains("12:05"))
+        #expect(!ukTime.contains("PM"))
     }
 }

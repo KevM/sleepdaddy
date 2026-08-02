@@ -124,16 +124,10 @@ public struct ContentView: View {
                                 .padding(.vertical, 8)
 
                             // Selected Night Detail
-                            SelectedNightDetailView(
-                                model: model,
-                                layoutMode: currentLayoutMode
-                            )
+                            SelectedNightDetailView(model: model)
                             .padding(.vertical, 8)
                         } else {
-                            SelectedNightDetailView(
-                                model: model,
-                                layoutMode: currentLayoutMode
-                            )
+                            SelectedNightDetailView(model: model)
                         }
                     }
                     .frame(

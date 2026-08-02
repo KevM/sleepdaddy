@@ -247,7 +247,7 @@ public struct SleepTimelineGeometry: Sendable {
         totalEnd: Date,
         anchorDate: Date? = nil
     ) -> TimelineViewport {
-        let maxDuration = totalEnd.timeIntervalSince(totalStart)
+        let maxDuration = max(1.0, totalEnd.timeIntervalSince(totalStart))
         let minDuration = min(Self.minimumViewportDuration, maxDuration)
         let targetDuration = min(maxDuration, max(minDuration, proposed.duration))
 

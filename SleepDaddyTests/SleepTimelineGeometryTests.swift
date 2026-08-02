@@ -718,6 +718,23 @@ struct SleepTimelineGeometryTests {
         #expect(clamped.end == end)
     }
 
+    @Test func viewportClampKeepsPositiveDurationForDegenerateBounds() {
+        let instant = Date(timeIntervalSinceReferenceDate: 0)
+        let proposed = TimelineViewport(
+            start: instant.addingTimeInterval(-60),
+            end: instant.addingTimeInterval(60)
+        )
+
+        let clamped = SleepTimelineGeometry.clamped(
+            proposed,
+            totalStart: instant,
+            totalEnd: instant
+        )
+
+        #expect(clamped.start == instant)
+        #expect(clamped.duration == 1)
+    }
+
     @Test func combinedTimelineRailRejectsInteractionWhenDisabled() {
         let railLayout = CombinedTimelineRailLayout(width: 400)
 

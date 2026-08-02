@@ -70,12 +70,6 @@ public struct TimelineGestureOverlay: UIViewRepresentable {
             self.observedResetGeneration = parent.resetGeneration
         }
 
-        public func gestureRecognizerShouldBegin(
-            _ gestureRecognizer: UIGestureRecognizer
-        ) -> Bool {
-            true
-        }
-
         public func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer

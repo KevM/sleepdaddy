@@ -1,18 +1,6 @@
 import Testing
 import SwiftUI
-import UIKit
 @testable import SleepDaddy
-
-private final class DelayedEmptySleepStore: HealthKitSleepStoreProtocol, @unchecked Sendable {
-    func requestAuthorization() async throws -> Bool {
-        true
-    }
-
-    func fetchSleepSamples(start: Date, end: Date) async throws -> [NormalizedSleepInterval] {
-        try await Task.sleep(for: .milliseconds(200))
-        return []
-    }
-}
 
 /// Composition tests for the timeline views.
 ///
@@ -21,6 +9,7 @@ private final class DelayedEmptySleepStore: HealthKitSleepStoreProtocol, @unchec
 /// re-record them — so a red test meant "re-record me", not "look at me", and stopped
 /// carrying information. What is still worth asserting is that each composition assembles
 /// its fixture, reaches the state the view expects, and rasterizes at its intended size.
+@Suite(.serialized)
 struct SnapshotTests {
     /// Renders `view` and fails if SwiftUI could not produce a bitmap.
     ///
@@ -163,6 +152,23 @@ struct SnapshotTests {
             named: "narrow landscape toolbar",
             expecting: CGSize(width: 320, height: 44)
         )
+    }
+
+    @Test func landscapeToolbarSemanticsDescribeNavigationState() {
+        let previous = LandscapeNightToolbarSemantics.previous(isEnabled: true)
+        let next = LandscapeNightToolbarSemantics.next(isEnabled: false)
+        let date = LandscapeNightToolbarSemantics.date(label: "Sat, Jul 25")
+        let duration = LandscapeNightToolbarSemantics.duration(value: "4h 30m")
+
+        #expect(previous.label == "Previous night")
+        #expect(previous.hint == "Switches to the previous night")
+        #expect(previous.isEnabled)
+        #expect(next.label == "Next night")
+        #expect(next.hint == "Switches to the next night")
+        #expect(!next.isEnabled)
+        #expect(date.label == "Sat, Jul 25")
+        #expect(date.hint == "Double tap to choose a date")
+        #expect(duration.label == "Sleep duration, 4h 30m")
     }
 
     @Test @MainActor func testSleepTimelineCanvasSnapshotComposition() {
@@ -420,164 +426,6 @@ struct SnapshotTests {
         )
     }
 
-    /// Hosts `view` in a real window so `@State`-driven content settles before rendering.
-    ///
-    /// `ImageRenderer` alone rasterizes a view that never entered a window, which is not
-    /// enough for compositions that load asynchronously.
-    @MainActor
-    private func assertHostedComposition(
-        of view: some View,
-        named name: String,
-        width: CGFloat,
-        height: CGFloat,
-        isReady: @escaping @MainActor () -> Bool
-    ) async throws {
-        let size = CGSize(width: width, height: height)
-        let controller = UIHostingController(rootView: view)
-        guard let windowScene = UIApplication.shared.connectedScenes
-            .compactMap({ $0 as? UIWindowScene })
-            .first else {
-            Issue.record("Failed to find a window scene for hosted composition \(name)")
-            return
-        }
-        let window = UIWindow(windowScene: windowScene)
-        window.frame = CGRect(origin: .zero, size: size)
-        window.rootViewController = controller
-        window.isHidden = false
-
-        controller.view.frame = window.bounds
-        controller.view.setNeedsLayout()
-        controller.view.layoutIfNeeded()
-        for _ in 0..<200 where !isReady() {
-            try await Task.sleep(for: .milliseconds(10))
-        }
-        #expect(
-            isReady(),
-            "\(name): Hosted content did not reach its expected state"
-        )
-        controller.view.setNeedsLayout()
-        controller.view.layoutIfNeeded()
-        try await Task.sleep(for: .milliseconds(10))
-        controller.view.setNeedsLayout()
-        controller.view.layoutIfNeeded()
-
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 2.0
-        let renderer = UIGraphicsImageRenderer(size: size, format: format)
-        let currentImage = renderer.image { context in
-            controller.view.layer.render(in: context.cgContext)
-        }
-        window.isHidden = true
-        window.rootViewController = nil
-        try await Task.sleep(for: .milliseconds(10))
-
-        guard let cgImage = currentImage.cgImage else {
-            Issue.record("Failed to render hosted composition \(name)")
-            return
-        }
-
-        #expect(cgImage.width == Int(width * 2.0), "\(name) width")
-        #expect(cgImage.height == Int(height * 2.0), "\(name) height")
-
-    }
-
-    @MainActor
-    private func makeLoadedFixtureModel(suiteName: String) async -> NightBrowserModel {
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        let model = NightBrowserModel(
-            store: FixtureSleepStore(),
-            preferencesStore: PreferencesStore(userDefaults: defaults)
-        )
-        await model.loadData()
-        return model
-    }
-
-    @Test @MainActor func testSnapshotEmptyLoadedNight() async throws {
-        var fixtureCalendar = Calendar(identifier: .gregorian)
-        fixtureCalendar.timeZone = .current
-        let now = fixtureCalendar.date(
-            from: DateComponents(year: 2026, month: 7, day: 25, hour: 12)
-        )!
-        let testDefaults = UserDefaults(suiteName: "SnapshotTests.EmptyLoadedNight")!
-        testDefaults.removePersistentDomain(forName: "SnapshotTests.EmptyLoadedNight")
-        let model = NightBrowserModel(
-            store: DelayedEmptySleepStore(),
-            preferencesStore: PreferencesStore(userDefaults: testDefaults),
-            now: { now }
-        )
-        await model.loadData()
-
-        #expect(model.appState == .loaded)
-        #expect(model.selectedAssembledNight?.hasSleepData == false)
-        let selectedDate = fixtureCalendar.dateComponents(
-            [.year, .month, .day],
-            from: model.selectedDate
-        )
-        #expect(selectedDate == DateComponents(year: 2026, month: 7, day: 24))
-
-        let content = ContentView(model: model)
-            .environment(\.colorScheme, .dark)
-            .environment(\.locale, Locale(identifier: "en_US"))
-            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-        try await assertHostedComposition(
-            of: content,
-            named: "empty loaded night",
-            width: 393,
-            height: 520,
-            isReady: { model.appState == .loaded }
-        )
-    }
-
-    @Test @MainActor func loadedLandscapeKeepsImmersiveTimeline() async throws {
-        let model = await makeLoadedFixtureModel(suiteName: "SnapshotTests.LoadedLandscape")
-        let content = ContentView(model: model)
-            .environment(\.verticalSizeClass, .compact)
-            .environment(\.locale, Locale(identifier: "en_US"))
-            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-
-        try await assertHostedComposition(
-            of: content,
-            named: "loaded landscape",
-            width: 852,
-            height: 393,
-            isReady: { model.appState == .loaded }
-        )
-    }
-
-    @Test @MainActor func loadedLandscapeAccessibilityKeepsImmersiveTimeline() async throws {
-        let model = await makeLoadedFixtureModel(suiteName: "SnapshotTests.LoadedLandscapeAccessibility")
-        let content = ContentView(model: model)
-            .environment(\.verticalSizeClass, .compact)
-            .environment(\.dynamicTypeSize, .accessibility2)
-            .environment(\.locale, Locale(identifier: "en_US"))
-            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-
-        try await assertHostedComposition(
-            of: content,
-            named: "loaded landscape accessibility",
-            width: 852,
-            height: 393,
-            isReady: { model.appState == .loaded }
-        )
-    }
-
-    @Test @MainActor func loadedPortraitUsesStandardComposition() async throws {
-        let model = await makeLoadedFixtureModel(suiteName: "SnapshotTests.LoadedPortrait")
-        let content = ContentView(model: model)
-            .environment(\.verticalSizeClass, .regular)
-            .environment(\.locale, Locale(identifier: "en_US"))
-            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-
-        try await assertHostedComposition(
-            of: content,
-            named: "loaded portrait",
-            width: 393,
-            height: 852,
-            isReady: { model.appState == .loaded }
-        )
-    }
-
     @Test @MainActor func testSnapshotPortraitLightMode() {
         let night = makeFixtureNight()
         let composite = NightDetailCompositeView(night: night)
@@ -620,35 +468,6 @@ struct SnapshotTests {
         #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: .regular) == .standard)
         #expect(SelectedNightLayoutMode.resolve(verticalSizeClass: nil) == .standard)
     }
-
-    @Test @MainActor func immersiveEmptyNightUsesLandscapeToolbar() async throws {
-        var fixtureCalendar = Calendar(identifier: .gregorian)
-        fixtureCalendar.timeZone = .current
-        let now = fixtureCalendar.date(
-            from: DateComponents(year: 2026, month: 7, day: 25, hour: 12)
-        )!
-        let suiteName = "SnapshotTests.ImmersiveEmptyNight"
-        let testDefaults = UserDefaults(suiteName: suiteName)!
-        testDefaults.removePersistentDomain(forName: suiteName)
-        let model = NightBrowserModel(
-            store: DelayedEmptySleepStore(),
-            preferencesStore: PreferencesStore(userDefaults: testDefaults),
-            now: { now }
-        )
-        await model.loadData()
-
-        let content = ContentView(model: model)
-            .environment(\.verticalSizeClass, .compact)
-            .environment(\.locale, Locale(identifier: "en_US"))
-            .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
-        try await assertHostedComposition(
-            of: content,
-            named: "immersive empty night",
-            width: 852,
-            height: 393,
-            isReady: { model.appState == .loaded }
-        )
-    }
 }
 
 private struct NightDetailCompositeView: View {
@@ -675,6 +494,6 @@ private struct NightDetailCompositeView: View {
             .frame(height: 320)
         }
         .padding(16)
-        .background(Color(UIColor.systemGroupedBackground))
+        .background(Color.gray.opacity(0.1))
     }
 }

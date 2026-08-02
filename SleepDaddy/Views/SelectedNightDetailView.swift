@@ -2,30 +2,13 @@ import SwiftUI
 
 public struct SelectedNightDetailView: View {
     @Bindable var model: NightBrowserModel
-    let layoutMode: SelectedNightLayoutMode
 
     public init(model: NightBrowserModel) {
         self.model = model
-        self.layoutMode = .standard
-    }
-
-    init(
-        model: NightBrowserModel,
-        layoutMode: SelectedNightLayoutMode
-    ) {
-        self.model = model
-        self.layoutMode = layoutMode
     }
 
     public var body: some View {
-        Group {
-            switch layoutMode {
-            case .standard:
-                standardDetail
-            case .immersiveLandscape:
-                immersiveDetail
-            }
-        }
+        detail
         .sheet(item: $model.selectedInterval) { interval in
             if let night = model.selectedAssembledNight {
                 IntervalInspectorSheet(
@@ -40,7 +23,7 @@ public struct SelectedNightDetailView: View {
     }
 
     @ViewBuilder
-    private var standardDetail: some View {
+    private var detail: some View {
         if let night = model.selectedAssembledNight {
             if night.hasSleepData {
                 timelineCanvas(night: night)
@@ -50,25 +33,6 @@ public struct SelectedNightDetailView: View {
         } else {
             ProgressView("Loading night...")
                 .frame(height: 240)
-        }
-    }
-
-    @ViewBuilder
-    private var immersiveDetail: some View {
-        if let night = model.selectedAssembledNight {
-            if night.hasSleepData {
-                GeometryReader { proxy in
-                    timelineCanvas(night: night)
-                        .frame(height: proxy.size.height)
-                }
-            } else {
-                emptyNightState
-            }
-        } else {
-            VStack(spacing: 12) {
-                ProgressView("Loading night...")
-                    .frame(height: 240)
-            }
         }
     }
 

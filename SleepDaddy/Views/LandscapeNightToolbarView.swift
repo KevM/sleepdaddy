@@ -1,5 +1,48 @@
 import SwiftUI
 
+struct LandscapeNightToolbarNavigationSemantics: Equatable, Sendable {
+    let label: String
+    let hint: String
+    let isEnabled: Bool
+}
+
+struct LandscapeNightToolbarTextSemantics: Equatable, Sendable {
+    let label: String
+}
+
+enum LandscapeNightToolbarSemantics {
+    static func previous(isEnabled: Bool) -> LandscapeNightToolbarNavigationSemantics {
+        navigation(label: "Previous night", isEnabled: isEnabled)
+    }
+
+    static func next(isEnabled: Bool) -> LandscapeNightToolbarNavigationSemantics {
+        navigation(label: "Next night", isEnabled: isEnabled)
+    }
+
+    static func date(label: String) -> LandscapeNightToolbarNavigationSemantics {
+        LandscapeNightToolbarNavigationSemantics(
+            label: label,
+            hint: "Double tap to choose a date",
+            isEnabled: true
+        )
+    }
+
+    static func duration(value: String) -> LandscapeNightToolbarTextSemantics {
+        LandscapeNightToolbarTextSemantics(label: "Sleep duration, \(value)")
+    }
+
+    private static func navigation(
+        label: String,
+        isEnabled: Bool
+    ) -> LandscapeNightToolbarNavigationSemantics {
+        LandscapeNightToolbarNavigationSemantics(
+            label: label,
+            hint: "Switches to the \(label.lowercased())",
+            isEnabled: isEnabled
+        )
+    }
+}
+
 struct LandscapeNightToolbarView: View {
     let night: AssembledNight
     let dateRange: ClosedRange<Date>?
@@ -51,13 +94,22 @@ struct LandscapeNightToolbarView: View {
     }
 
     var body: some View {
+        let previousSemantics = LandscapeNightToolbarSemantics.previous(
+            isEnabled: canGoPrevious
+        )
+        let nextSemantics = LandscapeNightToolbarSemantics.next(
+            isEnabled: canGoNext
+        )
+        let dateSemantics = LandscapeNightToolbarSemantics.date(label: formattedDate)
+        let durationSemantics = LandscapeNightToolbarSemantics.duration(
+            value: formattedDuration
+        )
+
         HStack(spacing: 8) {
             HStack(spacing: 0) {
                 navigationButton(
                     systemName: "chevron.left",
-                    accessibilityLabel: "Previous night",
-                    accessibilityHint: "Switches to the previous night",
-                    isEnabled: canGoPrevious,
+                    semantics: previousSemantics,
                     action: onPrevious
                 )
 
@@ -79,14 +131,12 @@ struct LandscapeNightToolbarView: View {
                     .contentShape(Rectangle())
                 }
                 .layoutPriority(1)
-                .accessibilityLabel(formattedDate)
-                .accessibilityHint("Double tap to choose a date")
+                .accessibilityLabel(dateSemantics.label)
+                .accessibilityHint(dateSemantics.hint)
 
                 navigationButton(
                     systemName: "chevron.right",
-                    accessibilityLabel: "Next night",
-                    accessibilityHint: "Switches to the next night",
-                    isEnabled: canGoNext,
+                    semantics: nextSemantics,
                     action: onNext
                 )
             }
@@ -98,7 +148,7 @@ struct LandscapeNightToolbarView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Sleep duration, \(formattedDuration)")
+                .accessibilityLabel(durationSemantics.label)
         }
         .sheet(isPresented: $showingDatePicker) {
             NavigationStack {
@@ -121,9 +171,7 @@ struct LandscapeNightToolbarView: View {
 
     private func navigationButton(
         systemName: String,
-        accessibilityLabel: String,
-        accessibilityHint: String,
-        isEnabled: Bool,
+        semantics: LandscapeNightToolbarNavigationSemantics,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -132,8 +180,8 @@ struct LandscapeNightToolbarView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
-        .disabled(!isEnabled)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(accessibilityHint)
+        .disabled(!semantics.isEnabled)
+        .accessibilityLabel(semantics.label)
+        .accessibilityHint(semantics.hint)
     }
 }
