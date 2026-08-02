@@ -220,13 +220,8 @@ public struct ContentView: View {
                     ActivityViewController(activityItems: [img])
                 }
             }
-            .task {
-                await model.loadData()
-            }
-            .onChange(of: scenePhase) { _, newScenePhase in
-                Task {
-                    await model.handleScenePhaseChange(newScenePhase)
-                }
+            .task(id: scenePhase) {
+                await model.handleScenePhaseChange(scenePhase)
             }
         }
     }

@@ -6,9 +6,9 @@ SleepDaddy queries HealthKit when `ContentView` first appears, but does not quer
 
 ## Design
 
-`ContentView` will observe SwiftUI's `scenePhase`. The existing initial load remains unchanged. Whenever the scene transitions to `.active`, the view will ask `NightBrowserModel` to reload its data through the existing HealthKit authorization, fetch, normalization, and night-assembly path.
+`ContentView` will observe SwiftUI's `scenePhase` with one cancellable `.task(id:)`. The task handles both initial appearance and later lifecycle transitions. Whenever the scene is `.active`, the view will ask `NightBrowserModel` to reload its data through the existing HealthKit authorization, fetch, normalization, and night-assembly path.
 
-The refresh will use the existing loading and error states. On success, it will retain the current `loadData()` behavior of selecting the newest populated night, ensuring last night's newly imported data is immediately visible. Background and inactive transitions will not fetch.
+Initial loading will use the existing loading state. Once data is loaded, foreground refreshes will keep the loaded content visible and preserve the selected night, viewport, and inspected interval while the selection remains in the rebuilt overview window. Newly imported data will appear in the available nights without interrupting the user's current navigation. Background and inactive transitions will not fetch, and overlapping activation events will share the existing in-flight load.
 
 No HealthKit background delivery, observer queries, timers, or manual refresh controls are added.
 
@@ -17,7 +17,7 @@ No HealthKit background delivery, observer queries, timers, or manual refresh co
 1. The app scene becomes active.
 2. `ContentView` receives the scene-phase change.
 3. `NightBrowserModel.loadData()` requests authorization and fetches the current date-relative range.
-4. The model replaces its cached intervals and available sources, reassembles the 14-night window, and selects the newest populated night.
+4. The model replaces its cached intervals and available sources and reassembles the 14-night window without resetting a valid current selection.
 5. SwiftUI renders the refreshed state.
 
 ## Error Handling
@@ -26,7 +26,6 @@ Foreground refresh uses the model's existing unavailable, unauthorized, and erro
 
 ## Verification
 
-- Add a model regression test using a mutable fixture store: load once, add a newer night, advance the injected clock, reload, and verify the new night appears and is selected.
+- Add model regression tests that verify new data appears without changing a valid selection, navigation state survives refresh, loaded content remains visible, overlapping loads are rejected, and inactive/background phases do not fetch.
 - Run the focused model tests, then the complete unit test suite.
 - Build the app for the configured iPhone simulator destination.
-

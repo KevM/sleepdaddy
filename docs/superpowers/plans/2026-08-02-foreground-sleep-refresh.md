@@ -4,7 +4,7 @@
 
 **Goal:** Refresh HealthKit sleep data whenever an already-running SleepDaddy scene becomes active.
 
-**Architecture:** `ContentView` observes SwiftUI's `scenePhase` and forwards changes to `NightBrowserModel`. The model owns the active-only refresh decision so the behavior can be tested without a UI inspection dependency.
+**Architecture:** `ContentView` observes SwiftUI's `scenePhase` with one cancellable `.task(id:)` and forwards changes to `NightBrowserModel`. The model owns the active-only refresh decision, preserves valid navigation state during silent refreshes, and rejects overlapping loads.
 
 **Tech Stack:** Swift 6, SwiftUI, Observation, Swift Testing
 
@@ -29,7 +29,7 @@
 
 - [x] **Step 1: Write the failing test**
 
-Add a test that loads an older fixture interval, replaces the fixture store's intervals with a newer night, invokes `handleScenePhaseChange(.active)`, and asserts that the newer night becomes selected.
+Add tests that load an older fixture interval, introduce a newer night, invoke `handleScenePhaseChange(.active)`, and assert that the new data appears while the selected date, viewport, and inspected interval remain unchanged. Add controlled-store tests for silent refresh, load re-entrancy, and inactive/background phases.
 
 - [x] **Step 2: Run the focused test to verify it fails**
 
@@ -53,12 +53,12 @@ public func handleScenePhaseChange(_ scenePhase: ScenePhase) async {
 }
 ```
 
-Read `scenePhase` in `ContentView` with `@Environment(\.scenePhase)` and forward changes from `.onChange(of: scenePhase)` in a `Task`.
+Read `scenePhase` in `ContentView` with `@Environment(\.scenePhase)` and forward it from one `.task(id: scenePhase)`. Preserve navigation and loaded UI state on refresh, guard against overlapping loads, and avoid no-op `selectedDate` assignments.
 
 - [x] **Step 4: Verify focused and complete tests**
 
 Run the focused test, the complete `SleepDaddyTests` suite, and the standard simulator build. All must pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Stage only the model, view, test, and this implementation plan, then commit with `fix: refresh sleep data on foreground`.

@@ -37,6 +37,7 @@ public final class NightBrowserModel: @unchecked Sendable {
     private let assembler = NightAssembler()
     private let now: @Sendable () -> Date
     private var allFetchedIntervals: [NormalizedSleepInterval] = []
+    private var isLoading = false
 
     public init(
         store: HealthKitSleepStoreProtocol = HealthKitSleepStore(),
@@ -55,8 +56,14 @@ public final class NightBrowserModel: @unchecked Sendable {
     }
 
     @MainActor
-    public func loadData() async {
-        appState = .loading
+    public func loadData(preservingNavigationState: Bool = false) async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+
+        if appState != .loaded {
+            appState = .loading
+        }
 
         guard HKHealthStore.isHealthDataAvailable() || store is FixtureSleepStore else {
             appState = .unavailable
@@ -86,13 +93,26 @@ public final class NightBrowserModel: @unchecked Sendable {
             }
             self.availableSources = sources
 
-            reassembleNights()
+            reassembleNights(preservingViewport: preservingNavigationState)
 
-            // Open to the most recent night with eligible sleep data
-            if let newest = assembledNights.last(where: { $0.hasSleepData }) {
-                self.selectedDate = newest.date
+            let selectionStillExists = assembledNights.contains {
+                calendar.isDate($0.date, inSameDayAs: selectedDate)
+            }
+
+            // Initial loads open to the most recent night. Foreground refreshes preserve
+            // the user's current date, viewport, and inspected interval while it remains
+            // inside the rebuilt overview window.
+            if preservingNavigationState && selectionStillExists {
+                // Keep the current navigation state.
+            } else if let newest = assembledNights.last(where: { $0.hasSleepData }) {
+                if !calendar.isDate(selectedDate, inSameDayAs: newest.date) {
+                    self.selectedDate = newest.date
+                }
             } else {
-                self.selectedDate = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+                let fallback = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+                if !calendar.isDate(selectedDate, inSameDayAs: fallback) {
+                    self.selectedDate = fallback
+                }
             }
 
             appState = .loaded
@@ -104,7 +124,7 @@ public final class NightBrowserModel: @unchecked Sendable {
     @MainActor
     public func handleScenePhaseChange(_ scenePhase: ScenePhase) async {
         guard scenePhase == .active else { return }
-        await loadData()
+        await loadData(preservingNavigationState: appState == .loaded)
     }
 
     public var selectedAssembledNight: AssembledNight? {
