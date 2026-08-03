@@ -82,49 +82,38 @@ final class DemoWalkthrough: XCTestCase {
         // 5. Night navigation, back and then forward again so the demo ends on the
         //    same night it started with. The fixture generates an identical night
         //    each day, so the date in the header is what changes here, not the shape.
-        tapIfPresent(app.buttons["Previous night"], beat: Beat.dwell)
-        tapIfPresent(app.buttons["Previous night"], beat: Beat.dwell)
-        tapIfPresent(app.buttons["Next night"], beat: Beat.read)
-        tapIfPresent(app.buttons["Next night"], beat: Beat.read)
+        tap(app.buttons["Previous night"], then: Beat.dwell)
+        tap(app.buttons["Previous night"], then: Beat.dwell)
+        tap(app.buttons["Next night"], then: Beat.read)
+        tap(app.buttons["Next night"], then: Beat.read)
 
         // 6. Source filtering: open the sheet, toggle a source off and back on so a
         //    reviewer sees the timeline respond, then close.
-        let filter = app.buttons["Filter sleep sources"]
-        if filter.waitForExistence(timeout: 5) {
-            filter.tap()
-            beat(Beat.dwell)
+        tap(app.buttons["Filter sleep sources"], then: Beat.dwell)
 
-            let sourceToggles = app.buttons.matching(
-                NSPredicate(format: "label BEGINSWITH %@", "Filter source ")
-            )
-            if sourceToggles.count > 0 {
-                let first = sourceToggles.element(boundBy: 0)
-                first.tap()
-                beat(Beat.read)
-                first.tap()
-                beat(Beat.short)
-            }
-            dismissSheet()
-            beat(Beat.read)
-        }
+        let sourceToggles = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Filter source ")
+        )
+        XCTAssertGreaterThan(
+            sourceToggles.count, 0,
+            "Filter sheet listed no sources, so the demo would not show filtering working"
+        )
+        let firstSource = sourceToggles.element(boundBy: 0)
+        tap(firstSource, then: Beat.read)
+        tap(firstSource, then: Beat.short)
+        dismissSheet()
+        beat(Beat.read)
 
         // 7. Settings: the adaptive night-boundary window.
-        if settings.waitForExistence(timeout: 5) {
-            settings.tap()
-            beat(Beat.dwell)
-            dismissSheet()
-            beat(Beat.short)
-        }
+        tap(settings, then: Beat.dwell)
+        dismissSheet()
+        beat(Beat.short)
 
         // 8. Share: renders the timeline card into the system share sheet. Dismissed
         //    without sending anything.
-        let share = app.buttons["Share timeline"]
-        if share.waitForExistence(timeout: 5), share.isEnabled {
-            share.tap()
-            beat(Beat.dwell)
-            dismissShareSheet()
-            beat(Beat.read)
-        }
+        tap(app.buttons["Share timeline"], then: Beat.dwell)
+        dismissShareSheet()
+        beat(Beat.read)
     }
 
     // MARK: - Helpers
@@ -147,22 +136,41 @@ final class DemoWalkthrough: XCTestCase {
             )
     }
 
-    private func tapIfPresent(_ element: XCUIElement, beat seconds: TimeInterval) {
-        guard element.exists, element.isEnabled, element.isHittable else { return }
+    /// Taps a control the walkthrough depends on, failing the run if it isn't
+    /// there. Every section of the demo has to appear in the recording, so a
+    /// renamed accessibility label must stop the run rather than quietly drop a
+    /// section and leave a short video that still reports success.
+    private func tap(
+        _ element: XCUIElement,
+        then seconds: TimeInterval,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertTrue(
+            element.waitForExistence(timeout: 5),
+            "Missing control: \(element)",
+            file: file, line: line
+        )
+        XCTAssertTrue(element.isEnabled, "Disabled control: \(element)", file: file, line: line)
         element.tap()
         beat(seconds)
     }
 
     /// Every sheet in the app carries a Done button; fall back to a swipe down for
-    /// anything that doesn't.
+    /// anything that doesn't. Unlike the controls above, either route is fine, so
+    /// this only has to leave no sheet behind.
     private func dismissSheet() {
         let done = app.buttons["Done"].firstMatch
         if done.waitForExistence(timeout: 2), done.isHittable {
             done.tap()
             beat(Beat.short)
-            return
+        } else {
+            swipeSheetAway()
         }
-        swipeSheetAway()
+        XCTAssertFalse(
+            app.buttons["Done"].firstMatch.exists,
+            "A sheet was still open after dismissing it"
+        )
     }
 
     /// `UIActivityViewController` has a Close button rather than Done.
