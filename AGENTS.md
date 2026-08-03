@@ -32,6 +32,17 @@ xcodebuild build -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iP
 xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
 ```
 
+### 4. Regenerate Screenshots and the Demo Video
+```bash
+./Scripts/capture-screenshots.sh   # App Store screenshots
+./Scripts/record-demo.sh           # App Review demo video
+```
+
+Read [docs/regenerating-marketing-assets.md](docs/regenerating-marketing-assets.md)
+first. The simulator's screen recorder has constraints that are not obvious and
+that both scripts are built around; the doc covers them, how to verify the
+output, and roughly how long to expect each pass to take.
+
 ## Directory Structure
 
 ```text
