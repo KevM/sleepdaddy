@@ -36,8 +36,17 @@ public struct SettingsView: View {
                     HStack {
                         Text("Version")
                         Spacer()
-                        Text("1.0")
+                        Text(AppVersion.version())
                             .foregroundColor(.secondary)
+                    }
+
+                    if let build = AppVersion.build() {
+                        HStack {
+                            Text("Build")
+                            Spacer()
+                            Text(build)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }
