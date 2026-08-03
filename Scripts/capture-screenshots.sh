@@ -98,8 +98,12 @@ for entry in "${DEVICES[@]}"; do
   rm -rf "$result_bundle"
 
   echo "    running capture pass"
+  # DemoWalkthrough shares this target so it shares the app build, but it is the
+  # App Review video pass and attaches no screenshots. Left in, it would add its
+  # 75-second run to every device here for nothing.
   xcodebuild test \
     -scheme "$SCHEME" \
+    -skip-testing:SleepDaddyScreenshots/DemoWalkthrough \
     -destination "platform=iOS Simulator,id=$udid" \
     -derivedDataPath "$DERIVED_DATA" \
     -resultBundlePath "$result_bundle" \
