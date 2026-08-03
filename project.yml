@@ -68,6 +68,18 @@ targets:
       SWIFT_VERSION: "6.0"
     dependencies:
       - target: SleepDaddy
+  SleepDaddyScreenshots:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: SleepDaddyScreenshots
+    info:
+      path: SleepDaddyScreenshots/Info.plist
+    settings:
+      CODE_SIGN_STYLE: Automatic
+      SWIFT_VERSION: "6.0"
+    dependencies:
+      - target: SleepDaddy
 schemes:
   SleepDaddy:
     build:
@@ -78,3 +90,12 @@ schemes:
     test:
       targets:
         - SleepDaddyTests
+  # Separate from the SleepDaddy scheme so CI never runs the screenshot pass.
+  SleepDaddyScreenshots:
+    build:
+      targets:
+        SleepDaddy: all
+        SleepDaddyScreenshots: [test]
+    test:
+      targets:
+        - SleepDaddyScreenshots
