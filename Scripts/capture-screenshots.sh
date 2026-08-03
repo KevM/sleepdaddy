@@ -44,11 +44,15 @@ resolve_simulator() {
   local name="SleepDaddy Shots - $label"
   local udid
 
+  # No match is the ordinary first-run case, not an error — the creation loop
+  # below handles it. Say so with `|| true` so the lookup stays safe under
+  # `set -e` wherever this function ends up being called from.
   udid="$(
     xcrun simctl list devices \
       | grep -F "$name (" \
       | head -1 \
-      | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}'
+      | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' \
+      || true
   )"
   if [ -n "$udid" ]; then
     echo "$udid"
