@@ -127,6 +127,32 @@ label = os.environ["DEVICE_LABEL"]
 with open(os.path.join(raw, "manifest.json")) as fh:
     manifest = json.load(fh)
 
+
+def strip_orientation_metadata(path):
+    """Drops a PNG's EXIF and XMP chunks, leaving the image data untouched.
+
+    sips records a rotation in both blocks, so both have to go.
+    """
+    with open(path, "rb") as fh:
+        data = fh.read()
+
+    kept = bytearray(data[:8])  # PNG signature
+    offset = 8
+    while offset < len(data):
+        length = int.from_bytes(data[offset : offset + 4], "big")
+        end = offset + 12 + length  # length + type + payload + CRC
+        chunk_type = data[offset + 4 : offset + 8]
+        is_xmp = chunk_type == b"iTXt" and data[offset + 8 : offset + 8 + length].startswith(
+            b"XML:com.adobe.xmp\x00"
+        )
+        if chunk_type != b"eXIf" and not is_xmp:
+            kept += data[offset:end]
+        offset = end
+
+    with open(path, "wb") as fh:
+        fh.write(kept)
+
+
 for test in manifest:
     for attachment in test.get("attachments", []):
         name = re.sub(
@@ -143,6 +169,13 @@ for test in manifest:
                 ["sips", "--rotate", "270", dest, "--out", dest],
                 check=True, capture_output=True,
             )
+            # sips rotates the pixels but records the rotation as an Orientation
+            # of 8 rather than clearing it, so anything that honors the tag —
+            # Apple's own ImageIO included — turns the now-landscape image back
+            # to portrait. It writes that tag into both an EXIF and an XMP
+            # chunk, and leaves XMP's pixel dimensions at their pre-rotation
+            # values. None of it is worth keeping; let the pixels speak.
+            strip_orientation_metadata(dest)
 PY
 done
 
