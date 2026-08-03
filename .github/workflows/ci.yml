@@ -29,11 +29,23 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Verify iOS 26 SDK
+      - name: Verify iOS 26+ SDK
         run: |
           xcodebuild -version
           xcodebuild -showsdks
-          xcodebuild -showsdks | grep -q 'iphoneos26'
+          # The Icon Composer app icon (SleepDaddy/AppIcon.icon) needs the
+          # iOS 26 SDK or newer to compile. This is a build-SDK floor and is
+          # independent of the deployment target.
+          MAJOR="$(
+            xcodebuild -showsdks \
+              | sed -n 's/.*-sdk iphoneos\([0-9][0-9]*\).*/\1/p' \
+              | sort -rn \
+              | head -1
+          )"
+          if [ -z "$MAJOR" ] || [ "$MAJOR" -lt 26 ]; then
+            echo "Need the iOS 26 SDK or newer, found: ${MAJOR:-none}" >&2
+            exit 1
+          fi
 
       - name: Install tools
         run: brew install xcodegen xcbeautify
