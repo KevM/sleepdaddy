@@ -60,6 +60,19 @@ Run the unit test suite using Swift Testing:
 xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
 ```
 
+### Regenerating the App Icon
+
+The app icon is drawn from the app's own `SleepStage` palette rather than maintained as
+hand-edited artwork. From the repository root:
+
+```bash
+swift Scripts/generate-app-icon.swift
+```
+
+This rewrites the Icon Composer layers in `SleepDaddy/AppIcon.icon/Assets/` and the website
+icons in `web/`. Compiling the `.icon` needs the iOS 26 SDK or newer; iOS versions below 26
+receive a flattened icon that `actool` renders from the same layers.
+
 ## Deployment
 
 SleepDaddy uses GitHub Actions and Fastlane to upload tagged or manually dispatched releases
