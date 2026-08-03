@@ -39,15 +39,6 @@ public struct SettingsView: View {
                         Text(AppVersion.version())
                             .foregroundColor(.secondary)
                     }
-
-                    if let build = AppVersion.build() {
-                        HStack {
-                            Text("Build")
-                            Spacer()
-                            Text(build)
-                                .foregroundColor(.secondary)
-                        }
-                    }
                 }
             }
             .navigationTitle("Settings")
