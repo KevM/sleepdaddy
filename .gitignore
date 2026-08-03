@@ -49,5 +49,15 @@ fastlane/README.md
 *.ipa
 *.dSYM.zip
 
+# Captured marketing assets. Both are reproducible from a simulator run —
+# Scripts/capture-screenshots.sh and Scripts/record-demo.sh — so the captures
+# themselves stay out of history rather than landing again on every re-record.
+# See docs/regenerating-marketing-assets.md.
+#
+# The raw screen recording lands in build/, already ignored above. The published
+# video under web/demo/ is deliberately NOT ignored: it is a site asset and the
+# deploy serves it.
+fastlane/screenshots/
+
 # Vercel CLI local link and pulled env (vercel pull writes here)
 .vercel
