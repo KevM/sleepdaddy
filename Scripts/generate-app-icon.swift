@@ -5,13 +5,19 @@
 // Outputs (relative to the repository root):
 //   SleepDaddy/AppIcon.icon/Assets/Ring.png    - stage arc, transparent
 //   SleepDaddy/AppIcon.icon/Assets/Moon.png    - crescent, transparent
-//   web/app-icon-1024.png                      - flat composite for the website
+//   web/app-icon-512x512.png                   - og:image / social card
+//   web/app-icon-64x64.png                     - site logo
+//   web/favicon-32x32.png                      - favicon
 //
 // The .icon layers are deliberately flat: Icon Composer and iOS add their own
 // glass, shadow and specular treatment on top. The flat web composite bakes in
 // the background gradient and a soft glow instead, since nothing renders it.
 //
-// Usage: swift Scripts/generate-app-icon.swift [repository-root]
+// Usage: swift Scripts/generate-app-icon.swift [repository-root] [--master <path>]
+//
+// --master additionally writes the full-resolution 1024px composite to <path>.
+// Nothing in the repository needs that size, so it is produced on demand rather
+// than committed.
 
 import CoreGraphics
 import CoreImage
@@ -276,21 +282,33 @@ func write(_ image: CGImage, to url: URL) {
     print("wrote \(url.path)")
 }
 
-let root = URL(
-    fileURLWithPath: CommandLine.arguments.count > 1
-        ? CommandLine.arguments[1]
-        : FileManager.default.currentDirectoryPath
-)
+var arguments = Array(CommandLine.arguments.dropFirst())
+var masterPath: String?
+
+if let flag = arguments.firstIndex(of: "--master") {
+    guard flag + 1 < arguments.count else {
+        fatalError("--master needs a destination path")
+    }
+    masterPath = arguments[flag + 1]
+    arguments.removeSubrange(flag...(flag + 1))
+}
+
+let root = URL(fileURLWithPath: arguments.first ?? FileManager.default.currentDirectoryPath)
 
 let iconAssets = root.appendingPathComponent("SleepDaddy/AppIcon.icon/Assets")
 write(renderRingLayer(), to: iconAssets.appendingPathComponent("Ring.png"))
 write(renderMoonLayer(), to: iconAssets.appendingPathComponent("Moon.png"))
 
 // The website has no Icon Composer to render for it, so it gets the flat
-// composite plus the sizes index.html, the favicon and og:image reference.
+// composite, downsampled to the sizes its markup actually references.
 let flat = renderFlatIcon()
 let web = root.appendingPathComponent("web")
-write(flat, to: web.appendingPathComponent("app-icon-1024.png"))
-write(resized(flat, to: 180), to: web.appendingPathComponent("app-icon-180x180.png"))
+write(resized(flat, to: 512), to: web.appendingPathComponent("app-icon-512x512.png"))
 write(resized(flat, to: 64), to: web.appendingPathComponent("app-icon-64x64.png"))
 write(resized(flat, to: 32), to: web.appendingPathComponent("favicon-32x32.png"))
+
+// build.js deploys everything under web/, so the 1024px master is kept out of
+// the repository and written only where it is asked for.
+if let masterPath {
+    write(flat, to: URL(fileURLWithPath: masterPath))
+}
