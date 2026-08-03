@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>App Demo — SleepDaddy HealthKit Sleep Inspector</title>
+  <meta name="description" content="A 71-second walkthrough of SleepDaddy: timeline zooming, interval inspection, night navigation, HealthKit source filtering, night boundary settings, and timeline sharing.">
+  <link rel="canonical" href="https://sleepdaddy.fm.rodeo/demo">
+  <meta property="og:url" content="https://sleepdaddy.fm.rodeo/demo">
+  <meta property="og:title" content="App Demo — SleepDaddy HealthKit Sleep Inspector">
+  <meta property="og:description" content="A 71-second walkthrough of SleepDaddy: timeline zooming, interval inspection, night navigation, HealthKit source filtering, night boundary settings, and timeline sharing.">
+  <meta property="og:image" content="https://sleepdaddy.fm.rodeo/app-icon-512x512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="stylesheet" href="index.css">
+  <script src="main.js" defer></script>
+</head>
+<body>
+
+  <!-- Ambient Hero Glow -->
+  <div class="hero-glow"></div>
+
+  <!-- Header & Sticky Navigation -->
+  <header class="site-header">
+    <div class="nav-container">
+      <a href="/" class="logo">
+        <img src="app-icon-64x64.png" alt="SleepDaddy App Icon" class="logo-img">
+        <span>SleepDaddy</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/#features">Features</a></li>
+        <li><a href="/#simulator">Live Demo</a></li>
+        <li><a href="demo" class="active">Video</a></li>
+        <li><a href="privacy">Privacy</a></li>
+        <li><a href="support">Support</a></li>
+      </ul>
+      <a href="TESTFLIGHT_URL" target="_blank" rel="noopener noreferrer" class="btn-primary btn-testflight">Join TestFlight</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Page Header Section -->
+    <section class="hero container hero-compact">
+      <div class="badge">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        71-Second App Walkthrough
+      </div>
+      <h1 class="hero-title">See SleepDaddy in Motion</h1>
+      <p class="hero-description">
+        A single unedited recording of the app running end to end — zooming a night's timeline, inspecting one interval, moving between nights, filtering by HealthKit source, adjusting night boundaries, and exporting a timeline card.
+      </p>
+    </section>
+
+    <!-- Demo Video -->
+    <section class="section container section-compact" id="video">
+      <div class="demo-layout">
+        <div class="demo-video-frame">
+          <video
+            class="demo-video"
+            controls
+            playsinline
+            preload="metadata"
+            poster="demo/poster.jpg"
+            width="588"
+            height="1280"
+            aria-describedby="demo-walkthrough">
+            <source src="demo/sleepdaddy-demo.mp4" type="video/mp4">
+            <p>Your browser cannot play this video.
+              <a href="demo/sleepdaddy-demo.mp4">Download the MP4</a> instead.</p>
+          </video>
+          <p class="demo-video-caption">
+            <a href="demo/sleepdaddy-demo.mp4" download>Download the MP4</a> · 71 seconds · no audio
+          </p>
+        </div>
+
+        <div class="demo-walkthrough" id="demo-walkthrough">
+          <h2>What the recording shows</h2>
+          <p class="doc-lead-text">In order, without cuts:</p>
+          <ol class="demo-steps">
+            <li>
+              <strong>A full night at a glance.</strong>
+              The stepped timeline draws every Awake, REM, Core, and Deep interval across the night, with the date and total sleep in the header.
+            </li>
+            <li>
+              <strong>Inspecting one interval.</strong>
+              Tapping an interval opens its details — stage, exact clock range, duration, and the HealthKit source, bundle identifier, and device model the sample came from.
+            </li>
+            <li>
+              <strong>Pinch to zoom.</strong>
+              The timeline zooms continuously under a pinch; the time axis relabels as the viewport narrows.
+            </li>
+            <li>
+              <strong>Panning across the night.</strong>
+              Dragging scrolls the zoomed viewport, with the scrub bar underneath showing the position within the whole night.
+            </li>
+            <li>
+              <strong>Moving between nights.</strong>
+              The chevrons step back to the two previous nights and forward again.
+            </li>
+            <li>
+              <strong>Filtering by HealthKit source.</strong>
+              The filter sheet lists every source that contributed sleep data. Selecting Apple Watch restricts the timeline to that source; clearing it returns to all sources. The same sheet holds the brief-awake toggle, which hides awake periods of a minute or less without changing sleep totals.
+            </li>
+            <li>
+              <strong>Adaptive night boundaries.</strong>
+              Settings exposes the core night window that decides where one night ends and the next begins, so late nights and shift patterns stay a single session.
+            </li>
+            <li>
+              <strong>Sharing a timeline card.</strong>
+              The share button renders the night to an image and hands it to the standard iOS share sheet. Nothing is sent anywhere by the app itself.
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recording Provenance -->
+    <section class="section container section-compact" id="about-this-recording">
+      <div class="privacy-callout-card">
+        <div class="badge badge-self-start">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          About This Recording
+        </div>
+        <h2>Sample Data, Real App</h2>
+        <p>
+          This was recorded on an iOS Simulator, where the app is backed by a built-in fixture instead of HealthKit — the simulator has no Apple Watch to record sleep. Everything on screen is the shipping app's own rendering, gesture handling, and layout code; only the sleep samples are synthetic. They describe one representative night, and the fixture repeats that same night for every date, which is why the timeline shape does not change as the recording steps between nights.
+        </p>
+        <p>
+          On a real device the identical screens are driven by <code class="doc-code-pill">HKCategoryTypeIdentifierSleepAnalysis</code> samples read from HealthKit. If a device has no recorded sleep, the app shows an explanatory empty state rather than any of the above.
+        </p>
+        <div class="info-grid">
+          <div class="info-item">
+            <h4 class="info-item-title">Strictly Read-Only</h4>
+            <p class="info-item-desc">The app requests read access to sleep analysis only, and never writes to HealthKit.</p>
+          </div>
+          <div class="info-item">
+            <h4 class="info-item-title">No Account, No Network</h4>
+            <p class="info-item-desc">There is no sign-in and no server. Preferences live in local <code class="doc-code-pill">UserDefaults</code>.</p>
+          </div>
+          <div class="info-item">
+            <h4 class="info-item-title">Unedited</h4>
+            <p class="info-item-desc">One continuous take. Nothing is sped up, cut together, or re-staged.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Landscape -->
+    <section class="section container section-compact" id="landscape">
+      <div class="section-header">
+        <h2>Landscape</h2>
+        <p>The app supports both orientations. Rotating mid-recording would have produced a sideways segment — a screen recording keeps the display's native orientation — so the immersive landscape timeline is shown here as a full-resolution capture instead.</p>
+      </div>
+      <figure class="demo-figure">
+        <img
+          src="demo/landscape.jpg"
+          alt="SleepDaddy in landscape on iPhone: the sleep stage timeline spans the full width, with the night's date and duration in the toolbar."
+          loading="lazy"
+          width="1600"
+          height="736">
+        <figcaption>Landscape hides the standard header and gives the timeline the full width, with night navigation moved into the toolbar.</figcaption>
+      </figure>
+    </section>
+
+    <!-- Try It Yourself -->
+    <section class="section container section-compact" id="try-it">
+      <div class="cta-box download-card">
+        <div class="badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path>
+          </svg>
+          Apple TestFlight Public Beta
+        </div>
+        <h2>Prefer to Drive It Yourself?</h2>
+        <p>The interactive timeline on the home page runs the same stage rendering in the browser, and the TestFlight beta puts the real app on your own HealthKit data.</p>
+        <div class="hero-actions hero-cta-group">
+          <a href="TESTFLIGHT_URL" target="_blank" rel="noopener noreferrer" class="btn-primary btn-testflight">Join TestFlight Beta</a>
+          <a href="/#simulator" class="btn-secondary">Open the Live Demo</a>
+        </div>
+        <span class="cta-footnote">Requires iOS 18.0 or later. Completely free during public beta.</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <div class="footer-info">
+        <a href="/" class="logo logo-sm">
+          <img src="app-icon-64x64.png" alt="SleepDaddy App Icon" class="logo-img logo-img-sm">
+          <span>SleepDaddy</span>
+        </a>
+        <p class="footer-copy">
+          © 2026 SleepDaddy. All rights reserved. Read-only HealthKit sleep inspector for iOS.
+        </p>
+      </div>
+
+      <ul class="footer-links">
+        <li><a href="privacy">Privacy Policy</a></li>
+        <li><a href="support">Support &amp; FAQ</a></li>
+        <li><a href="https://github.com/kevm/sleepdaddy" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+      </ul>
+
+      <div class="build-badge">
+        iOS 18+ • Swift 6
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
