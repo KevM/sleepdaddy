@@ -48,3 +48,6 @@ fastlane/test_output/
 fastlane/README.md
 *.ipa
 *.dSYM.zip
+
+# Vercel CLI local link and pulled env (vercel pull writes here)
+.vercel
