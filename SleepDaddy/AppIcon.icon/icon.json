@@ -1,0 +1,26 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.10000,0.13000,0.34000,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "Ring.png"
+        }
+      ]
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "Moon.png"
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "iOS"
+    ]
+  }
+}

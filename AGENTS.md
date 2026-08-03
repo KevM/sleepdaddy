@@ -13,6 +13,7 @@ SleepDaddy is a read-only iOS application for inspecting HealthKit sleep data in
 3. **Read-Only HealthKit**: HealthKit is read-only. Never add write/update code for HealthKit data. Local record exclusions and preferences are persisted locally in `UserDefaults` (`SleepPreferences` / `PreferencesStore`).
 4. **Swift Testing**: Unit tests use the modern `import Testing` framework (`@Test` functions and `#expect(...)` assertions).
 5. **Decoupled Geometry & Layout**: Timeline geometry calculations (dates to pixels, pinch zoom scaling, drag panning, clamping, hit testing) reside in `SleepTimelineGeometry.swift` so canvas behavior can be tested without rendering UI pixels.
+6. **Generated App Icon**: `SleepDaddy/AppIcon.icon` is an Icon Composer document whose layers are rendered from the `SleepStage.themeColor` palette by `Scripts/generate-app-icon.swift`. Edit the script, not the PNGs, and re-run it to regenerate both the icon layers and the website icons. Do not commit artwork above 512px — `web/build.js` deploys everything under `web/` — pass `--master <path>` when a full-resolution render is needed. Building it needs the iOS 26 SDK or newer regardless of the deployment target; iOS versions below 26 get a flattened fallback that `actool` renders from the same layers.
 
 ## Standard Development Commands
 
@@ -38,7 +39,9 @@ sleepdaddy/
 ├── project.yml                 # XcodeGen project specification
 ├── README.md                   # User & project documentation
 ├── AGENTS.md                   # AI pair programming guidelines
+├── Scripts/                    # Release helpers and generate-app-icon.swift
 ├── SleepDaddy/
+│   ├── AppIcon.icon/           # Icon Composer document (layers are generated)
 │   ├── SleepDaddyApp.swift     # Main app entrypoint
 │   ├── Models/                 # SleepStage, NormalizedSleepInterval, SleepPreferences, AssembledNight, NightSummary, TimelineConflict
 │   ├── Services/               # HealthKitSleepStore, FixtureSleepStore, SleepNormalizer, NightAssembler, PreferencesStore
