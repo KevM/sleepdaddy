@@ -56,20 +56,39 @@ jobs:
       - name: Run tests
         run: |
           set -o pipefail
+          # Pick an iPhone from the newest installed iOS runtime and address it
+          # by UDID. Matching on name alone is ambiguous whenever more than one
+          # runtime is eligible, and picks whichever device is listed first.
           DEVICE="$(
-            xcrun simctl list devices available \
-              | grep -oE 'iPhone [0-9]+( Pro( Max)?| Plus)?' \
-              | head -1
+            xcrun simctl list devices available --json \
+              | jq -r '
+                  .devices
+                  | to_entries
+                  | map(select(.key | test("SimRuntime\\.iOS-")))
+                  | map(.version = (
+                      .key
+                      | capture("iOS-(?<major>[0-9]+)-(?<minor>[0-9]+)")
+                      | [(.major | tonumber), (.minor | tonumber)]
+                    ))
+                  | sort_by(.version)
+                  | reverse
+                  | map(.value | map(select(.name | startswith("iPhone"))))
+                  | map(select(length > 0))
+                  | first // []
+                  | first // {}
+                  | "\(.udid // "")\t\(.name // "")"
+                '
           )"
-          if [ -z "$DEVICE" ]; then
+          UDID="${DEVICE%%$'\t'*}"
+          if [ -z "$UDID" ]; then
             echo "No available iPhone simulator found" >&2
             xcrun simctl list devices available >&2
             exit 1
           fi
-          echo "Using simulator: $DEVICE"
+          echo "Using simulator: ${DEVICE#*$'\t'} ($UDID)"
           xcodebuild test \
             -scheme SleepDaddy \
-            -destination "platform=iOS Simulator,name=$DEVICE" \
+            -destination "platform=iOS Simulator,id=$UDID" \
             CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath TestResults.xcresult \
           | xcbeautify
