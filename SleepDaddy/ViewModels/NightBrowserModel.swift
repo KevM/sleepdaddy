@@ -20,6 +20,8 @@ public final class NightBrowserModel: @unchecked Sendable {
     public var selectedDate: Date = Calendar.current.startOfDay(for: Date()) {
         didSet {
             selectedInterval = nil
+            selectedVitalsSession = nil
+            selectedDesaturationEvents = []
             resetViewportToSelectedNight()
         }
     }
@@ -32,8 +34,13 @@ public final class NightBrowserModel: @unchecked Sendable {
     public var showShareSheet: Bool = false
     public var exportedImage: UIImage? = nil
 
+    public private(set) var selectedVitalsSession: VitalsSession?
+    public private(set) var selectedDesaturationEvents: [DesaturationEvent] = []
+
     private let store: HealthKitSleepStoreProtocol
     private let preferencesStore: PreferencesStore
+    private let vitalsStore: (any VitalsStore)?
+    private let detector = DesaturationDetector()
     private let assembler = NightAssembler()
     private let now: @Sendable () -> Date
     private var allFetchedIntervals: [NormalizedSleepInterval] = []
@@ -42,10 +49,12 @@ public final class NightBrowserModel: @unchecked Sendable {
     public init(
         store: HealthKitSleepStoreProtocol = HealthKitSleepStore(),
         preferencesStore: PreferencesStore = PreferencesStore(),
+        vitalsStore: (any VitalsStore)? = try? FileVitalsStore(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.store = store
         self.preferencesStore = preferencesStore
+        self.vitalsStore = vitalsStore
         self.now = now
         self.preferences = preferencesStore.load()
         let calendar = Calendar.current
@@ -116,6 +125,7 @@ public final class NightBrowserModel: @unchecked Sendable {
             }
 
             appState = .loaded
+            await loadVitalsForSelectedNight()
         } catch where preservingNavigationState {
             // Keep the last successfully loaded timeline visible when a foreground
             // refresh encounters a transient HealthKit failure.
@@ -251,5 +261,59 @@ public final class NightBrowserModel: @unchecked Sendable {
     public func selectNextNight() {
         guard canSelectNextNight, let idx = currentNightIndex else { return }
         selectNight(assembledNights[idx + 1].date)
+    }
+
+    /// Resolves vitals for the selected night and attaches the extent to it.
+    ///
+    /// Runs off the main actor: a full recording is roughly 22,000 samples to decompress
+    /// and parse. It never touches rendering, which reads the in-memory arrays.
+    @MainActor
+    public func loadVitalsForSelectedNight() async {
+        guard let vitalsStore, let night = selectedAssembledNight else {
+            selectedVitalsSession = nil
+            selectedDesaturationEvents = []
+            return
+        }
+
+        // Search a generous window so a recording starting before the detected sleep is
+        // still found. The extent, not this window, decides what is drawn.
+        let searchWindow = DateInterval(
+            start: night.detectedStart.addingTimeInterval(-6 * 3_600),
+            end: night.detectedEnd.addingTimeInterval(6 * 3_600)
+        )
+
+        let detector = self.detector
+        let loaded: (VitalsSession, [DesaturationEvent])? = await Task.detached(priority: .userInitiated) {
+            guard let session = try? vitalsStore.session(covering: searchWindow) else { return nil }
+            return (session, detector.events(in: session))
+        }.value
+
+        guard let (session, events) = loaded else {
+            selectedVitalsSession = nil
+            selectedDesaturationEvents = []
+            attachVitalsExtent(nil)
+            return
+        }
+
+        selectedVitalsSession = session
+        selectedDesaturationEvents = events
+        attachVitalsExtent(session.dateInterval)
+    }
+
+    private func attachVitalsExtent(_ extent: DateInterval?) {
+        guard let index = currentNightIndex else { return }
+        assembledNights[index] = assembledNights[index].withVitalsExtent(extent)
+    }
+
+    /// Imports a CSV and refreshes the current night if the recording lands on it.
+    @MainActor
+    public func importVitals(from url: URL) async throws {
+        guard let vitalsStore else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        let data = try Data(contentsOf: url)
+        try vitalsStore.importRecording(data, originalName: url.lastPathComponent)
+        await loadVitalsForSelectedNight()
     }
 }
