@@ -135,7 +135,15 @@ cleanup() {
     wait "$RECORD_PID" 2>/dev/null || true
   fi
 }
-trap cleanup EXIT
+
+# The simulator stays booted until something shuts it down, and booted devices
+# accumulate across runs until xcodebuild's CoreSimulator teardown starts
+# stalling — a later `xcodebuild test` then hangs after its tests have already
+# finished. Hand this one back however the script exits.
+shutdown_simulator() {
+  xcrun simctl shutdown "$UDID" >/dev/null 2>&1 || true
+}
+trap 'cleanup; shutdown_simulator' EXIT
 
 echo "    running walkthrough"
 set +e
@@ -154,7 +162,8 @@ set -e
 sleep 2
 
 cleanup
-trap - EXIT
+# The recorder is stopped; the simulator still needs handing back at exit.
+trap shutdown_simulator EXIT
 
 if [ "$TEST_STATUS" -ne 0 ]; then
   echo "Walkthrough failed. Log: $TEST_LOG" >&2

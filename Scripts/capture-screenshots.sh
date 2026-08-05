@@ -78,7 +78,20 @@ echo "==> Generating Xcode project"
 
 mkdir -p "$OUTPUT_DIR"
 WORK_DIR="$(mktemp -d)"
-trap 'rm -rf "$WORK_DIR"' EXIT
+BOOTED=()
+
+# A booted simulator stays resident until something shuts it down, and this
+# script boots three of them. They accumulate across runs, and xcodebuild's
+# CoreSimulator teardown gets slower and less reliable the more are running —
+# far enough down that road and a later `xcodebuild test` hangs after its tests
+# have already finished. Give back whatever this run booted.
+cleanup() {
+  rm -rf "$WORK_DIR"
+  for booted in ${BOOTED+"${BOOTED[@]}"}; do
+    xcrun simctl shutdown "$booted" >/dev/null 2>&1 || true
+  done
+}
+trap cleanup EXIT
 
 for entry in "${DEVICES[@]}"; do
   device="${entry%%|*}"
@@ -89,6 +102,7 @@ for entry in "${DEVICES[@]}"; do
 
   xcrun simctl boot "$udid" 2>/dev/null || true
   xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || true
+  BOOTED+=("$udid")
 
   # Marketing status bar. Cellular bars are rejected on Wi-Fi-only iPads, so
   # only request them where they apply.

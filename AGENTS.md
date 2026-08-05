@@ -24,13 +24,35 @@ xcodegen generate
 
 ### 2. Build Scheme
 ```bash
-xcodebuild build -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
+xcodebuild build -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' -derivedDataPath ./DerivedData
 ```
 
 ### 3. Run Unit Test Suite
 ```bash
-xcodebuild test -scheme SleepDaddy -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ./DerivedData
+./Scripts/run-tests.sh
 ```
+
+Pass any extra xcodebuild arguments straight through, for example
+`./Scripts/run-tests.sh -only-testing:SleepDaddyTests/NightBrowserModelTests`.
+
+Use the script rather than calling `xcodebuild test` directly, which hangs.
+
+On this project `xcodebuild test` usually never exits *after* the tests have
+finished: the log holds the complete run and its `Test run with N tests` summary
+line, and then the process sits there indefinitely, blocked in CoreSimulator
+teardown. Measured at roughly two runs in three, and unrelated to how many
+simulators are booted. It is also why testing from Xcode takes seconds while the
+same tests from the CLI appear to hang — the IDE keeps one long-lived simulator
+session and never performs that teardown.
+
+So the script watches the log for the summary line rather than waiting on the
+process, and reports pass/fail from it as soon as every test has reported. Whole
+suite: about 8 seconds. It also pins one simulator UDID, because a bare
+`name=iPhone 17` destination is ambiguous whenever two installed runtimes carry
+that device name.
+
+If a run does hang, read the tail of `build/test-run.log` before suspecting the
+test code. A summary line means the tests were fine.
 
 ### 4. Regenerate Screenshots and the Demo Video
 ```bash
