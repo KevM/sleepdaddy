@@ -28,7 +28,7 @@ ranging 32–109 bpm.
 - Import CSV exports without preprocessing or a manual night-assignment step.
 - Join recordings split by the device's ten-hour session cap into one continuous session.
 - Leave HealthKit access read-only and `NightAssembler` untouched.
-- Keep the imported CSV verbatim as the source of truth, so no stored data can outlive a
+- Keep the imported CSV losslessly as the source of truth, so no stored data can outlive a
   parser fix.
 - Keep storage behind a protocol so iCloud durability is a later conformance, not a rewrite.
 
@@ -233,39 +233,42 @@ incidental churn.
 
 ### Pipeline
 
-Import copies the file; it does not decode it.
+Import stores the file; it does not decode it.
 
 ```
-import:  CSV file → validate header + first/last row → VitalsStore (copy verbatim)
+import:  CSV file → validate header + first/last row → compress → VitalsStore
 
-load:    VitalsStore → CheckmeCSVParser → VitalsSessionStitcher → VitalsSession
-                                                                  (in memory)
+load:    VitalsStore → decompress → CheckmeCSVParser → VitalsSessionStitcher
+                                                       → VitalsSession (in memory)
 ```
 
 Import is one-way. Rendering never touches files.
 
 ### Storage
 
-**The imported CSV is stored verbatim and is the durable source of truth.** No decoded
-format is persisted.
+**The imported CSV is stored losslessly and is the durable source of truth.** It is
+compressed but not transformed: decompression reproduces the imported file byte for byte.
+No decoded format is persisted.
 
-`FileVitalsStore` copies each file into Application Support, renamed to carry its span:
+`FileVitalsStore` writes each file into Application Support zlib-compressed, renamed to
+carry its span:
 
 ```
-2026-08-03T180248_2026-08-04T040246.csv
+2026-08-03T180248_2026-08-04T040246.csv.z
 ```
 
 The file name *is* the index. Determining which recordings cover a night requires no
-parsing, no sidecar metadata, and no separate index file to keep consistent.
+parsing, no decompression, no sidecar metadata, and no separate index file to keep
+consistent.
 
 `VitalsStore` remains a protocol, so iCloud durability later is a new conformance and
 callers do not change.
 
 #### Why not a decoded format
 
-A twelve-hour night is 735 KB as raw CSV, against 67 KB stored columnar — roughly 268 MB
-versus 24 MB per year. At those magnitudes the difference does not justify a second
-serialization path, and three properties favor keeping the original:
+A twelve-hour night is 96 KB as compressed CSV, against 67 KB stored columnar (20 KB
+compressed) — roughly 33 MB versus 7 MB per year. At those magnitudes the difference does
+not justify a second serialization path, and three properties favor keeping the original:
 
 - **`CheckmeCSVParser` must exist regardless.** It is how the file is read at all.
   Persisting a decoded form adds a second reader and writer on top of it; storing the CSV
@@ -277,9 +280,33 @@ serialization path, and three properties favor keeping the original:
   parser repairs every night already imported — which matters given the known timezone
   limitation below.
 
-Compression is deliberately omitted. zlib takes a night to roughly 91 KB, but it is a
-contained change behind `VitalsStore` and should wait until 268 MB/year is demonstrably
-a problem rather than a projected one.
+#### Compression
+
+Stored files are zlib-compressed at **level 6** via `NSData.compressed(using:)`, measured
+on the reference export:
+
+| Level | Size | Ratio | Compress (once, at import) | Decompress |
+| --- | --- | --- | --- | --- |
+| zlib-1 | 120 KB | 6.1× | 2 ms | 0.30 ms |
+| **zlib-6** | **96 KB** | **7.7×** | **10 ms** | **0.23 ms** |
+| zlib-9 | 91 KB | 8.1× | 74 ms | 0.23 ms |
+
+Level 6 captures 95% of the available reduction for a seventh of the CPU of level 9. The
+remaining 5 KB per night does not justify the difference.
+
+Decompression at roughly 3 GB/s costs **0.23 ms for a full night** — an order of magnitude
+less than merely splitting the file into rows. It occurs once per night selection, on the
+same background load already required for parsing, and never during rendering.
+
+Compression is applied from the start rather than deferred. It is two lines against a
+system framework rather than machinery that might go unused, it takes 268 MB/year down to
+roughly 33 MB/year ahead of iCloud, and deferring it would leave a store containing a
+mixture of compressed and uncompressed files to reconcile later.
+
+The tradeoff accepted is external readability: `.zlib` produces a raw deflate stream
+rather than a gzip container, so stored files do not open with `gunzip`. This costs
+ad-hoc inspection only. Compression is lossless, so reparsing and retroactive parser fixes
+are unaffected, and an in-app export of the original CSV serves the user-facing need.
 
 ### Parsing performance
 
@@ -392,8 +419,9 @@ midnight rollover present in the reference data; a cadence violation in the fina
 rejected. A performance test asserts a full 18,000-row file parses well inside the budget
 for an interactive night change, guarding against a `DateFormatter` regression.
 
-**`FileVitalsStoreTests`** — span-derived naming round-trips; re-importing the same file
-is a no-op; night lookup resolves from file names without reading contents.
+**`FileVitalsStoreTests`** — span-derived naming round-trips; compress/decompress is
+byte-identical to the imported file; re-importing the same file is a no-op; night lookup
+resolves from file names without reading or decompressing contents.
 
 **`VitalsSessionStitcherTests`** — the reference four-second gap joins into one session; a
 forty-minute gap stays two; three-file chains; out-of-order input. Stitching is verified
@@ -426,10 +454,10 @@ HealthKit usage is unchanged and remains read-only.
 
 ## Scope Boundary
 
-In scope: CSV import via Files and "Open in", verbatim CSV storage, parse-on-load,
+In scope: CSV import via Files and "Open in", lossless compressed CSV storage, parse-on-load,
 load-time stitching, the three lanes on the selected-night detail timeline, desaturation
 detection, and the data-defined timeline extent.
 
-Out of scope for v1: iCloud, the Share Extension, storage compression, a decoded
-persistence format, vitals in the multi-night strip or share card, configurable
-thresholds, HealthKit vitals, and any interpretation of the data beyond drawing it.
+Out of scope for v1: iCloud, the Share Extension, a decoded persistence format, vitals in
+the multi-night strip or share card, configurable thresholds, HealthKit vitals, and any
+interpretation of the data beyond drawing it.
