@@ -25,6 +25,8 @@ ranging 32–109 bpm.
 - Preserve every recorded sample; reduce only what is drawn, never what is stored.
 - Guarantee that brief, severe desaturations remain visible at every zoom level.
 - Make desaturation events findable without reading the charts.
+- Encode severity with colour that survives colour-vision deficiency, and that states
+  thresholds as numbers rather than verdicts.
 - Import CSV exports without preprocessing or a manual night-assignment step.
 - Join recordings split by the device's ten-hour session cap into one continuous session.
 - Leave HealthKit access read-only and `NightAssembler` untouched.
@@ -39,7 +41,8 @@ ranging 32–109 bpm.
   fidelity that makes this feature worthwhile does not survive HealthKit's summarization.
 - Vitals in the multi-night overview strip or the shared image card.
 - Clinical interpretation, diagnosis, scoring, or advice of any kind.
-- User-configurable event thresholds.
+- User-configurable event or colour thresholds.
+- Severity colouring on the pulse lane.
 - A Share Extension target. See [Share Sheet Registration](#share-sheet-registration).
 - iCloud synchronization.
 
@@ -181,13 +184,65 @@ cost real, a cache goes behind `VitalsEnvelopeBuilder` without touching callers.
 A missing reading is drawn as a **break in the line**, never interpolated across. A gap
 means the sensor was not reading, which is information the viewer needs.
 
+### Colour
+
+The SpO₂ band is coloured in **three horizontal zones by value**, so a band crossing a
+threshold is coloured only in the part that crosses:
+
+| Zone | Colour | Token |
+| --- | --- | --- |
+| 90% and above | `#2a78d6` | series blue |
+| 85–90% | `#fab219` | status warning |
+| Below 85% | `#d03b3b` | status critical |
+
+Colour re-encodes what vertical position already shows. That redundancy is deliberate:
+the SpO₂ lane carries a single series, so the identity channel is free, and severe dips
+are narrow at low zoom where position alone is easy to miss.
+
+**Pulse is a single hue with no zones** (series blue). SpO₂ has broadly agreed reference
+ranges; a sleeping heart rate does not. The reference night's 32 bpm is equally
+consistent with athletic bradycardia and with something worth asking a clinician about,
+and nothing in the recording distinguishes them. Colouring it would assert a judgement
+the data cannot support. Revisit only with a defensible per-individual baseline.
+
+#### Why these colours
+
+Measured with the visualization skill's validator (OKLab ΔE ×100, Machado–Oliveira–
+Fernandes at severity 1.0), not chosen by eye:
+
+- **Green is excluded.** Status green against status orange measures **ΔE 5.6** under
+  protanopia, against a target of 8 — roughly 1 in 12 men would see the normal and
+  concerning zones as nearly the same colour. Substituting the series blue for green
+  takes the worst adjacent pair to **ΔE 24.4**. The device vendor's report uses
+  green/yellow/orange/red and walks into exactly this collapse.
+- **Three zones, not four.** Status warning against status serious measures **ΔE 13.6
+  under normal vision**, below the floor of 15. That pair is hard to separate for
+  everyone, not only CVD viewers, so a fourth zone adds complexity while subtracting
+  clarity.
+- **Contrast relief.** `#fab219` sits below 3:1 on a light surface. The validator's WARN
+  obligates a relief channel; the y-axis and the inspector supply the value in text, so
+  colour never carries a reading alone.
+
+#### Thresholds are displayed as numbers
+
+The legend reads `90% and above` / `85–90%` / `below 85%`. It does **not** read *Normal*,
+*Concerning*, or *Critical*.
+
+The threshold is a display choice; the word would be a verdict. Numeric labels give the
+full perceptual benefit of zoning while keeping the app's stated non-goal — that it
+draws data and does not characterize it — intact rather than quietly abandoned at the
+last step.
+
+Both thresholds are named constants, so exposing them in `SleepPreferences` later is
+mechanical.
+
 ### Lane composition
 
 Beneath the existing sleep-stage plot, in order:
 
 1. **Desaturation rail** — a thin rail marking events, directly under the stage plot so
    clusters register before either chart is read.
-2. **SpO₂ lane** — envelope band, scaled 70–100%, with a reference line at 88%.
+2. **SpO₂ lane** — envelope band, scaled 70–100%.
 3. **Pulse lane** — envelope band, scaled 30–110 bpm.
 
 When a night has no vitals, all three are **absent entirely** — no placeholder, no empty
@@ -195,6 +250,14 @@ chrome. The app is visually identical to today.
 
 `SleepTimelineGeometry` supplies x-coordinates unchanged. A new `VitalsLaneGeometry`
 handles only value-to-y scaling, which the existing geometry has no concept of.
+
+**SpO₂ and pulse occupy separate lanes with separate vertical scales, and must never
+share one.** Two measures of different scale on a single plot is a dual-axis chart: the
+alignment between the scales is arbitrary, so the plot manufactures apparent correlations
+that are not in the data. Since reading pulse against oxygen is the entire purpose of this
+feature, a dual-axis presentation would actively mislead at exactly the moment the user
+is trying to reason. Vertical stacking on a shared *time* axis gives the same visual
+comparison without inventing a relationship between the value scales.
 
 ## Timeline Extent
 
@@ -372,9 +435,12 @@ Build the extension only if SleepDaddy does not appear usefully.
 the preceding 120 seconds — and opens an event when a reading falls at least **4%** below
 it, closing when it recovers. Each event records its nadir, baseline, and duration.
 
-The rail marks events reaching **below 88%**.
+The rail marks events whose nadir reaches **below 90%**, aligning with the first colour
+zone boundary. The design deliberately carries **two** thresholds, not three: 4% for what
+counts as an event, and 90%/85% for how deep it is drawn. A separate rail threshold would
+add a third number that agrees with neither.
 
-Both thresholds are fixed constants in v1, expressed as named values so exposing them in
+All thresholds are fixed constants in v1, expressed as named values so exposing them in
 `SleepPreferences` later is mechanical.
 
 These are conventional signal-processing parameters for making events visible on a chart.
@@ -438,6 +504,10 @@ with hand-computed expectations; gap regions produce no events.
 **`VitalsLaneGeometryTests`** — value-to-y scaling, clamping beyond range, and agreement
 with `SleepTimelineGeometry` on x for identical viewports.
 
+**`VitalsColorZoneTests`** — zone selection at and around each boundary (89/90/91,
+84/85/86); a band spanning a boundary is coloured on both sides of it rather than taking
+one zone for the whole span; the pulse lane returns a single hue for every value.
+
 **`NightAssemblerTests` / `SleepTimelineGeometryTests`** — updated for the data-defined
 extent described above.
 
@@ -455,8 +525,8 @@ HealthKit usage is unchanged and remains read-only.
 ## Scope Boundary
 
 In scope: CSV import via Files and "Open in", lossless compressed CSV storage, parse-on-load,
-load-time stitching, the three lanes on the selected-night detail timeline, desaturation
-detection, and the data-defined timeline extent.
+load-time stitching, the three lanes on the selected-night detail timeline, three-zone
+SpO₂ colouring, desaturation detection, and the data-defined timeline extent.
 
 Out of scope for v1: iCloud, the Share Extension, a decoded persistence format, vitals in
 the multi-night strip or share card, configurable thresholds, HealthKit vitals, and any
