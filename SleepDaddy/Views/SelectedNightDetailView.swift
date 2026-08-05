@@ -37,19 +37,33 @@ public struct SelectedNightDetailView: View {
     }
 
     private func timelineCanvas(night: AssembledNight) -> some View {
-        SleepTimelineCanvas(
-            night: night,
-            viewportStart: model.viewportStart,
-            viewportEnd: model.viewportEnd,
-            selectedIntervalID: model.selectedInterval?.id,
-            onSelectInterval: { interval in
-                model.selectedInterval = interval
-            },
-            onUpdateViewport: { newStart, newEnd in
-                model.updateViewport(start: newStart, end: newEnd)
+        VStack(spacing: 8) {
+            SleepTimelineCanvas(
+                night: night,
+                viewportStart: model.viewportStart,
+                viewportEnd: model.viewportEnd,
+                selectedIntervalID: model.selectedInterval?.id,
+                onSelectInterval: { interval in
+                    model.selectedInterval = interval
+                },
+                onUpdateViewport: { newStart, newEnd in
+                    model.updateViewport(start: newStart, end: newEnd)
+                }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Absent entirely when the night has no vitals — no placeholder, no empty
+            // chrome. The app looks exactly as it did before the feature existed.
+            if let session = model.selectedVitalsSession {
+                VitalsLanesView(
+                    session: session,
+                    events: model.selectedDesaturationEvents,
+                    night: night,
+                    viewportStart: model.viewportStart,
+                    viewportEnd: model.viewportEnd
+                )
             }
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
         .padding(.horizontal, 16)
     }
 

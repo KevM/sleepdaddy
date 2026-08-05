@@ -204,6 +204,7 @@ public struct ContentView: View {
             }
             .sheet(isPresented: $model.showSettings) {
                 SettingsView(
+                    model: model,
                     coreStartHour: Binding(
                         get: { model.preferences.coreWindowStartHour },
                         set: { start in model.updateCoreWindow(startHour: start, endHour: model.preferences.coreWindowEndHour) }
