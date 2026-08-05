@@ -29,7 +29,12 @@ final class InMemoryVitalsStore: VitalsStore, @unchecked Sendable {
         try allDescriptors().filter { $0.dateInterval.intersects(interval) }
     }
 
+    /// Counts entries, so a test can wait for a load to have genuinely reached the store
+    /// rather than guessing at a delay long enough for it to have started.
+    private(set) var loadSessionCallCount = 0
+
     func loadSession(for descriptor: VitalsRecordingDescriptor) throws -> VitalsSession {
+        loadSessionCallCount += 1
         if loadDelayNanoseconds > 0 {
             Thread.sleep(forTimeInterval: Double(loadDelayNanoseconds) / 1_000_000_000.0)
         }
@@ -148,22 +153,51 @@ struct NightBrowserModelVitalsTests {
 
     @Test func rapidDateChangesDiscardStaleVitalsFromEarlierNight() async throws {
         let store = InMemoryVitalsStore()
-        store.loadDelayNanoseconds = 100_000_000 // 100ms artificial delay in session loading
         let model = NightBrowserModel(
             store: FixtureSleepStore(), vitalsStore: store, now: { Date() }
         )
         await model.loadData()
 
+        // Night A's recording has to be in the store *before* its load begins, and that
+        // load has to still be in flight when the test navigates away. Populating the
+        // store after `loadData` instead would leave nothing stale to discard, and the
+        // test would pass whether or not the model guards the write-back.
         let nightA = try #require(model.selectedAssembledNight)
         store.sessions = [session(start: nightA.detectedStart, count: 1_000)]
+        store.loadDelayNanoseconds = 200_000_000
 
-        // Fast tap to previous night before Night A finishes loading
+        async let nightALoad: Void = model.loadVitalsForSelectedNight()
+
+        // Wait on the store being reached rather than on a delay chosen to outrun it.
+        try await waitUntil { store.loadSessionCallCount > 0 }
+
+        // Night B is a day away from night A's recording, so it resolves to nothing.
         model.selectPreviousNight()
+        await nightALoad
 
-        // Wait long enough for Night A's delayed load to finish
-        try await Task.sleep(nanoseconds: 200_000_000)
+        // Night A's load returns after the selection moved. Hold the invariant across a
+        // window wide enough that a stale write would have landed inside it.
+        for _ in 0..<20 {
+            try await Task.sleep(nanoseconds: 10_000_000)
+            #expect(model.selectedVitalsSession == nil)
+            #expect(model.selectedDesaturationEvents.isEmpty)
+            #expect(model.selectedAssembledNight?.vitalsExtent == nil)
+        }
+    }
 
-        // Night B has no vitals session, so selectedVitalsSession must remain nil (not Night A's)
-        #expect(model.selectedVitalsSession == nil)
+    /// Polls `condition` until it holds, bounded by wall clock.
+    ///
+    /// A fixed sleep would encode a guess about how long the work takes; on a loaded
+    /// machine that guess is what makes a test flaky.
+    private func waitUntil(
+        timeout: Duration = .seconds(5),
+        _ condition: @Sendable () -> Bool
+    ) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        Issue.record("timed out waiting for condition")
     }
 }
