@@ -48,7 +48,7 @@ public final class NightBrowserModel: @unchecked Sendable {
     private let now: @Sendable () -> Date
     private var allFetchedIntervals: [NormalizedSleepInterval] = []
     private var isLoading = false
-    private var vitalsTask: Task<Void, Never>?
+    private var vitalsTask: Task<(VitalsSession, [DesaturationEvent])?, Never>?
 
     public init(
         store: HealthKitSleepStoreProtocol = HealthKitSleepStore(),
@@ -292,16 +292,24 @@ public final class NightBrowserModel: @unchecked Sendable {
 
         let detector = self.detector
         let workTask: Task<(VitalsSession, [DesaturationEvent])?, Never> = Task.detached(priority: .userInitiated) {
-            guard let session = try? vitalsStore.session(covering: searchWindow) else { return nil }
+            guard !Task.isCancelled,
+                  let session = try? vitalsStore.session(covering: searchWindow)
+            else { return nil }
+            // Decompressing and parsing is the expensive half. If a newer request has
+            // superseded this one by the time that finishes, skip detection rather than
+            // scanning 22,000 samples for a night nobody is looking at.
+            guard !Task.isCancelled else { return nil }
             return (session, detector.events(in: session))
         }
 
-        vitalsTask = Task { @MainActor in
-            _ = await workTask.value
-        }
+        // The work task itself is what gets cancelled — a wrapper awaiting its value
+        // would not, since a detached task has no parent to propagate cancellation from.
+        vitalsTask = workTask
 
         let loaded = await workTask.value
 
+        // Cancellation cannot interrupt the store's synchronous read, so a superseded
+        // load still arrives here. The selection is what decides whether it may land.
         guard !Task.isCancelled, selectedDate == targetDate else { return }
 
         guard let (session, events) = loaded else {
