@@ -17,6 +17,9 @@ struct SleepDaddyApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(model: model)
+                .onOpenURL { url in
+                    Task { try? await model.importVitals(from: url) }
+                }
         }
     }
 }

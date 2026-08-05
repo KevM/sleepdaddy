@@ -46,6 +46,14 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        LSSupportsOpeningDocumentsInPlace: true
+        UISupportsDocumentBrowser: false
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: "Pulse Oximeter CSV"
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.comma-separated-values-text
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: fm.rodeo.SleepDaddy
       CODE_SIGN_STYLE: Automatic
