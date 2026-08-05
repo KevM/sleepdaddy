@@ -409,12 +409,23 @@ private actor BlockingSleepStore: HealthKitSleepStoreProtocol {
         blocksNextFetch = true
     }
 
-    func waitForFetchCount(_ expectedCount: Int, maxYields: Int = 1_000) async -> Bool {
-        for _ in 0..<maxYields {
+    /// Polls until `fetchCount` reaches `expectedCount`, bounded by wall clock.
+    ///
+    /// A yield budget is not a timeout: the refresh being waited on runs on the main actor,
+    /// and a thousand yields here can elapse in microseconds without the main actor having
+    /// been scheduled once. On a loaded machine that reported a timeout for a refresh that
+    /// was merely still queued.
+    func waitForFetchCount(_ expectedCount: Int, timeout: Duration = .seconds(5)) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
             if fetchCount >= expectedCount {
                 return true
             }
-            await Task.yield()
+            do {
+                try await Task.sleep(for: .milliseconds(5))
+            } catch {
+                break // Cancelled — fall through to one last read rather than spinning.
+            }
         }
         return fetchCount >= expectedCount
     }

@@ -20,6 +20,13 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
     public let summary: NightSummary
     public let hasSleepData: Bool
 
+    /// The span of pulse-oximeter data attached to this night, when any exists.
+    ///
+    /// Set by `NightBrowserModel` after assembly, never by `NightAssembler` — vitals have
+    /// nothing to do with grouping sleep intervals, and threading a store through the
+    /// assembler would join two unrelated concerns.
+    public let vitalsExtent: DateInterval?
+
     /// Padding kept on each side of the detected sleep span when the timeline first opens,
     /// so the data never sits flush against the edge of the view.
     public static let detectedViewportGutter: TimeInterval = 20 * 60
@@ -35,14 +42,22 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
         detectedEnd.addingTimeInterval(Self.detectedViewportGutter)
     }
 
-    /// Full navigable timeline. Spans the configured context and the gutter-padded detected
-    /// span, so the preferred viewport always fits inside without clamping away its gutter.
+    /// Full navigable timeline, defined by **data** rather than by the configured core
+    /// window. The gutter-padded detected span is the floor, widened by any vitals
+    /// recording that extends beyond it.
+    ///
+    /// The core window no longer participates. It keeps its other responsibility — seeding
+    /// which intervals belong to a night in `NightAssembler` — unchanged. A night with
+    /// sleep from 23:00 to 06:00 previously allowed panning back to 19:00 across empty
+    /// evening; it now bounds to the data.
     public var timelineStart: Date {
-        min(coreWindowStart, preferredViewportStart)
+        guard let vitalsExtent else { return preferredViewportStart }
+        return min(preferredViewportStart, vitalsExtent.start)
     }
 
     public var timelineEnd: Date {
-        max(coreWindowEnd, preferredViewportEnd)
+        guard let vitalsExtent else { return preferredViewportEnd }
+        return max(preferredViewportEnd, vitalsExtent.end)
     }
 
     public init(
@@ -56,7 +71,8 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
         displayLaneIntervals: [NormalizedSleepInterval],
         conflicts: [TimelineConflict],
         summary: NightSummary,
-        hasSleepData: Bool
+        hasSleepData: Bool,
+        vitalsExtent: DateInterval? = nil
     ) {
         self.date = date
         self.coreWindowStart = coreWindowStart
@@ -69,5 +85,25 @@ public struct AssembledNight: Identifiable, Hashable, Codable, Sendable {
         self.conflicts = conflicts
         self.summary = summary
         self.hasSleepData = hasSleepData
+        self.vitalsExtent = vitalsExtent
+    }
+
+    /// Returns a copy carrying `extent`. Used by `NightBrowserModel` to attach vitals
+    /// without `NightAssembler` knowing they exist.
+    public func withVitalsExtent(_ extent: DateInterval?) -> AssembledNight {
+        AssembledNight(
+            date: date,
+            coreWindowStart: coreWindowStart,
+            coreWindowEnd: coreWindowEnd,
+            detectedStart: detectedStart,
+            detectedEnd: detectedEnd,
+            rawIntervals: rawIntervals,
+            primaryLaneIntervals: primaryLaneIntervals,
+            displayLaneIntervals: displayLaneIntervals,
+            conflicts: conflicts,
+            summary: summary,
+            hasSleepData: hasSleepData,
+            vitalsExtent: extent
+        )
     }
 }
