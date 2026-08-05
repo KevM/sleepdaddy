@@ -28,6 +28,8 @@ ranging 32–109 bpm.
 - Import CSV exports without preprocessing or a manual night-assignment step.
 - Join recordings split by the device's ten-hour session cap into one continuous session.
 - Leave HealthKit access read-only and `NightAssembler` untouched.
+- Keep the imported CSV verbatim as the source of truth, so no stored data can outlive a
+  parser fix.
 - Keep storage behind a protocol so iCloud durability is a later conformance, not a rewrite.
 
 ## Non-Goals
@@ -93,10 +95,13 @@ Three types in `SleepDaddy/Models/`.
 
 ### VitalsSession
 
-Stores samples **columnar** — three `[UInt8]` arrays rather than an array of structs:
+A **runtime type only.** It is never serialized; the stored CSV is the durable
+representation. See [Storage](#storage).
+
+Samples are held **columnar** — three `[UInt8]` arrays rather than an array of structs:
 
 ```swift
-public struct VitalsSession: Identifiable, Hashable, Codable, Sendable {
+public struct VitalsSession: Identifiable, Hashable, Sendable {
     public let id: String
     public let startDate: Date
     public let sampleInterval: TimeInterval   // 2.0
@@ -107,14 +112,12 @@ public struct VitalsSession: Identifiable, Hashable, Codable, Sendable {
 }
 ```
 
-Two consequences follow from the perfectly regular cadence:
+Deliberately **not** `Codable`. Conformance would invite persisting it, which is the
+thing this design avoids.
 
-- **No per-sample timestamp.** Sample *i* occurs at `startDate + i × sampleInterval`.
-  Mapping a viewport to a sample range is arithmetic, not a search.
-- **Size.** Three bytes per sample puts a twelve-hour night at roughly 66 KB, against
-  roughly 1 MB as timestamped JSON. This is the one place the design trades a little
-  directness for a fifteenfold reduction, and it is chosen deliberately because iCloud
-  durability is a stated future goal.
+The perfectly regular cadence means **no per-sample timestamp is stored**. Sample *i*
+occurs at `startDate + i × sampleInterval`, so mapping a viewport to a sample range is
+arithmetic rather than a search.
 
 `0` encodes a missing reading, which is unambiguous: a live oximeter never reports zero
 saturation or zero pulse for a subject it is reading.
@@ -230,31 +233,88 @@ incidental churn.
 
 ### Pipeline
 
+Import copies the file; it does not decode it.
+
 ```
-CSV file
-  → CheckmeCSVParser        (text → VitalsSession; pure, no I/O)
-  → VitalsSessionStitcher   (join files within 5 min of each other)
-  → VitalsStore             (persist)
+import:  CSV file → validate header + first/last row → VitalsStore (copy verbatim)
+
+load:    VitalsStore → CheckmeCSVParser → VitalsSessionStitcher → VitalsSession
+                                                                  (in memory)
 ```
 
 Import is one-way. Rendering never touches files.
 
+### Storage
+
+**The imported CSV is stored verbatim and is the durable source of truth.** No decoded
+format is persisted.
+
+`FileVitalsStore` copies each file into Application Support, renamed to carry its span:
+
+```
+2026-08-03T180248_2026-08-04T040246.csv
+```
+
+The file name *is* the index. Determining which recordings cover a night requires no
+parsing, no sidecar metadata, and no separate index file to keep consistent.
+
+`VitalsStore` remains a protocol, so iCloud durability later is a new conformance and
+callers do not change.
+
+#### Why not a decoded format
+
+A twelve-hour night is 735 KB as raw CSV, against 67 KB stored columnar — roughly 268 MB
+versus 24 MB per year. At those magnitudes the difference does not justify a second
+serialization path, and three properties favor keeping the original:
+
+- **`CheckmeCSVParser` must exist regardless.** It is how the file is read at all.
+  Persisting a decoded form adds a second reader and writer on top of it; storing the CSV
+  leaves the parser as the only one.
+- **No schema migration.** Changing `VitalsSession` requires no versioning, no upgrade
+  path, and no legacy decoder. The stored representation is upstream of the model.
+- **Parser fixes apply retroactively.** A decoded store bakes any parser defect in
+  permanently, because the original input is gone. Keeping the CSV means correcting the
+  parser repairs every night already imported — which matters given the known timezone
+  limitation below.
+
+Compression is deliberately omitted. zlib takes a night to roughly 91 KB, but it is a
+contained change behind `VitalsStore` and should wait until 268 MB/year is demonstrably
+a problem rather than a projected one.
+
+### Parsing performance
+
+Parsing runs on every night selection, so its cost is a design constraint rather than an
+implementation detail.
+
+**`DateFormatter` must not be used per row.** At roughly 10–50 µs per call, 22,263 rows
+would cost most of a second on every night change — enough on its own to make
+parse-on-load unworkable.
+
+It is also unnecessary. The two-second cadence is exact and jitter-free, so **only the
+first timestamp is parsed**; sample *i* is `startDate + i × sampleInterval`, which is
+already how `VitalsSession` addresses time. The last row's timestamp is parsed as a
+consistency check — if it disagrees with the arithmetic, the file's cadence assumption is
+violated and the import is rejected.
+
+The remainder is integer scanning over raw bytes: roughly 66,000 small integers, no
+`String` allocation per field. Parsing must operate on `Data`/`UTF8View`, not on
+`String.components(separatedBy:)`.
+
+Loading is asynchronous and off the main thread regardless.
+
 ### Session stitching
 
-Recordings whose boundaries fall within **five minutes** of each other join into a single
-session. The reference files' four-second gap qualifies comfortably; a genuine second
-recording, hours later, does not.
+Stitching happens **at load time**, not at import. Recordings whose boundaries fall within
+**five minutes** of each other join into a single in-memory session. The reference files'
+four-second gap qualifies comfortably; a genuine second recording, hours later, does not.
+
+Stored files are never merged or rewritten. Each remains exactly as exported.
 
 ### Night matching
 
 Sessions bind to nights automatically by timestamp overlap against
-`AssembledNight.detectedStart`/`detectedEnd`. There is no manual assignment step.
-
-### Storage
-
-`FileVitalsStore` writes binary property lists into Application Support, one file per
-session. `VitalsStore` is a protocol; iCloud durability later is a new conformance, and
-callers do not change.
+`AssembledNight.detectedStart`/`detectedEnd`, resolved from file names alone. There is no
+manual assignment step.
 
 ### Share Sheet Registration
 
@@ -298,12 +358,18 @@ grades, or characterizes what it draws.
 
 | Condition | Behavior |
 | --- | --- |
-| Malformed CSV | Typed `VitalsImportError` naming the offending line. Import fails whole; never a silent partial |
-| Unrecognized header | Rejected with a clear message; no guessing at column order |
-| `--` readings | Stored as `0`, drawn as a gap, excluded from events and envelope extremes |
-| Duplicate import | Deduplicated on `(startDate, sampleCount)`; re-importing is a no-op |
+| Malformed CSV | Typed `VitalsImportError` naming the offending line. Import fails whole; the file is not copied into the store |
+| Unrecognized header | Rejected at import with a clear message; no guessing at column order |
+| Cadence violation | Last row's timestamp disagrees with `start + n × 2s`; rejected at import |
+| `--` readings | Parsed as `0`, drawn as a gap, excluded from events and envelope extremes |
+| Duplicate import | The span-derived file name collides; re-importing is a no-op |
+| Corrupt file discovered at load | Surfaced on the affected night only; other nights are unaffected and the file is retained for inspection |
 | Session overlapping no night | Retained in the store, drawn on whichever night it overlaps once one exists |
 | Night with no vitals | Lanes absent entirely |
+
+Import validates the header, the first row, and the last row before copying, so a file
+that will fail to parse is rejected while the user is still in the import flow rather
+than silently later.
 
 ### Timezone
 
@@ -322,10 +388,16 @@ Swift Testing throughout, per `AGENTS.md`. Fixtures are trimmed from the referen
 
 **`CheckmeCSVParserTests`** — well-formed parse; `--` in both columns; malformed rows;
 unrecognized headers; the exact 18,000-row session cap; timestamp parsing across the
-midnight rollover present in the reference data.
+midnight rollover present in the reference data; a cadence violation in the final row is
+rejected. A performance test asserts a full 18,000-row file parses well inside the budget
+for an interactive night change, guarding against a `DateFormatter` regression.
+
+**`FileVitalsStoreTests`** — span-derived naming round-trips; re-importing the same file
+is a no-op; night lookup resolves from file names without reading contents.
 
 **`VitalsSessionStitcherTests`** — the reference four-second gap joins into one session; a
-forty-minute gap stays two; three-file chains; out-of-order input.
+forty-minute gap stays two; three-file chains; out-of-order input. Stitching is verified
+to leave stored files untouched.
 
 **`VitalsEnvelopeBuilderTests`** — the critical suite. A single 73% sample must still read
 73% after reduction to 100 columns, to 10 columns, and to 1. Gaps must not be bridged.
@@ -354,10 +426,10 @@ HealthKit usage is unchanged and remains read-only.
 
 ## Scope Boundary
 
-In scope: CSV import via Files and "Open in", stitching, local storage, the three lanes
-on the selected-night detail timeline, desaturation detection, and the data-defined
-timeline extent.
+In scope: CSV import via Files and "Open in", verbatim CSV storage, parse-on-load,
+load-time stitching, the three lanes on the selected-night detail timeline, desaturation
+detection, and the data-defined timeline extent.
 
-Out of scope for v1: iCloud, the Share Extension, vitals in the multi-night strip or
-share card, configurable thresholds, HealthKit vitals, and any interpretation of the
-data beyond drawing it.
+Out of scope for v1: iCloud, the Share Extension, storage compression, a decoded
+persistence format, vitals in the multi-night strip or share card, configurable
+thresholds, HealthKit vitals, and any interpretation of the data beyond drawing it.
