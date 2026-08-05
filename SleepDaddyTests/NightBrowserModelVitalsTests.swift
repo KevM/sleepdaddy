@@ -58,7 +58,7 @@ struct NightBrowserModelVitalsTests {
         #expect(model.selectedDesaturationEvents.isEmpty)
     }
 
-    @Test func aSessionOverlappingTheSelectedNightIsExposed() async {
+    @Test func aSessionOverlappingTheSelectedNightIsExposed() async throws {
         let store = InMemoryVitalsStore()
         let model = NightBrowserModel(
             store: FixtureSleepStore(), vitalsStore: store,
@@ -66,28 +66,79 @@ struct NightBrowserModelVitalsTests {
         )
         await model.loadData()
 
-        guard let night = model.selectedAssembledNight, night.hasSleepData else { return }
+        let night = try #require(model.selectedAssembledNight)
+        #expect(night.hasSleepData)
         store.sessions = [session(start: night.detectedStart, count: 1_000)]
         await model.loadVitalsForSelectedNight()
 
         #expect(model.selectedVitalsSession != nil)
     }
 
-    @Test func theSelectedNightCarriesTheVitalsExtent() async {
+    @Test func theSelectedNightCarriesTheVitalsExtent() async throws {
         let store = InMemoryVitalsStore()
         let model = NightBrowserModel(
             store: FixtureSleepStore(), vitalsStore: store, now: { Date() }
         )
         await model.loadData()
 
-        guard let night = model.selectedAssembledNight, night.hasSleepData else { return }
+        let night = try #require(model.selectedAssembledNight)
+        #expect(night.hasSleepData)
         // Start an hour before the detected sleep so the extent must widen.
         let early = night.detectedStart.addingTimeInterval(-3_600)
         store.sessions = [session(start: early, count: 3_000)]
         await model.loadVitalsForSelectedNight()
 
-        let updated = try! #require(model.selectedAssembledNight)
+        let updated = try #require(model.selectedAssembledNight)
         #expect(updated.vitalsExtent != nil)
         #expect(updated.timelineStart <= early)
+    }
+
+    @Test func changingNightsAutomaticallyReloadsVitalsWithoutManualLoaderCall() async throws {
+        let store = InMemoryVitalsStore()
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(), vitalsStore: store, now: { Date() }
+        )
+        await model.loadData()
+
+        let currentNight = try #require(model.selectedAssembledNight)
+        #expect(currentNight.hasSleepData)
+        #expect(model.canSelectPreviousNight)
+
+        let prevNightDate = model.assembledNights[model.currentNightIndex! - 1].date
+        let prevNightObj = model.assembledNights[model.currentNightIndex! - 1]
+
+        let prevSession = session(start: prevNightObj.detectedStart, count: 1_000)
+        store.sessions = [prevSession]
+
+        // Switch night via API call (which sets selectedDate)
+        model.selectPreviousNight()
+        #expect(Calendar.current.isDate(model.selectedDate, inSameDayAs: prevNightDate))
+
+        // Wait for async task dispatched in didSet to complete
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        #expect(model.selectedVitalsSession != nil)
+        #expect(model.selectedVitalsSession?.startDate == prevSession.startDate)
+    }
+
+    @Test func reassembleNightsPreservesVitalsExtentOnSelectedNight() async throws {
+        let store = InMemoryVitalsStore()
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(), vitalsStore: store, now: { Date() }
+        )
+        await model.loadData()
+
+        let night = try #require(model.selectedAssembledNight)
+        let early = night.detectedStart.addingTimeInterval(-3_600)
+        store.sessions = [session(start: early, count: 3_000)]
+        await model.loadVitalsForSelectedNight()
+
+        #expect(model.selectedAssembledNight?.vitalsExtent != nil)
+
+        // Trigger reassembly (e.g. settings toggle or source toggle)
+        model.reassembleNights(preservingViewport: true)
+        try await Task.sleep(nanoseconds: 50_000_000)
+
+        #expect(model.selectedAssembledNight?.vitalsExtent != nil)
     }
 }

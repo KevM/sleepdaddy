@@ -49,7 +49,7 @@ public struct DesaturationDetector: Sendable {
 
             events.append(DesaturationEvent(
                 startDate: session.date(at: index),
-                endDate: session.date(at: cursor),
+                endDate: min(session.endDate, session.date(at: cursor)),
                 nadir: nadir,
                 baseline: baseline
             ))

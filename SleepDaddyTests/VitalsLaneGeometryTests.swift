@@ -6,29 +6,29 @@ import CoreGraphics
 struct VitalsLaneGeometryTests {
     @Test func theMaximumSitsAtTheTopAndTheMinimumAtTheBottom() {
         let geometry = VitalsLaneGeometry(minValue: 70, maxValue: 100, laneHeight: 100)
-        #expect(geometry.yPosition(for: 100) == 0)
-        #expect(geometry.yPosition(for: 70) == 100)
+        #expect(geometry.yPosition(for: 100.0) == 0)
+        #expect(geometry.yPosition(for: 70.0) == 100)
     }
 
     @Test func themidpointLandsHalfway() {
         let geometry = VitalsLaneGeometry(minValue: 70, maxValue: 100, laneHeight: 100)
-        #expect(geometry.yPosition(for: 85) == 50)
+        #expect(geometry.yPosition(for: 85.0) == 50)
     }
 
     @Test func valuesBeyondTheRangeClampToTheLaneEdges() {
         let geometry = VitalsLaneGeometry(minValue: 70, maxValue: 100, laneHeight: 100)
-        #expect(geometry.yPosition(for: 120) == 0)
-        #expect(geometry.yPosition(for: 10) == 100)
+        #expect(geometry.yPosition(for: 120.0) == 0)
+        #expect(geometry.yPosition(for: 10.0) == 100)
     }
 
     @Test func aZeroHeightLaneDoesNotDivideByZero() {
         let geometry = VitalsLaneGeometry(minValue: 70, maxValue: 100, laneHeight: 0)
-        #expect(geometry.yPosition(for: 85).isFinite)
+        #expect(geometry.yPosition(for: 85.0).isFinite)
     }
 
     @Test func aDegenerateRangeDoesNotDivideByZero() {
         let geometry = VitalsLaneGeometry(minValue: 90, maxValue: 90, laneHeight: 100)
-        #expect(geometry.yPosition(for: 90).isFinite)
+        #expect(geometry.yPosition(for: 90.0).isFinite)
     }
 
     @Test func theStandardScalesMatchTheDesign() {

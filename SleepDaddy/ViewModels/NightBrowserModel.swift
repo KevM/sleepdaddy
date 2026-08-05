@@ -23,6 +23,9 @@ public final class NightBrowserModel: @unchecked Sendable {
             selectedVitalsSession = nil
             selectedDesaturationEvents = []
             resetViewportToSelectedNight()
+            Task { @MainActor in
+                await loadVitalsForSelectedNight()
+            }
         }
     }
 
@@ -168,6 +171,9 @@ public final class NightBrowserModel: @unchecked Sendable {
 
         if !preservingViewport {
             resetViewportToSelectedNight()
+        }
+        Task { @MainActor in
+            await loadVitalsForSelectedNight()
         }
     }
 

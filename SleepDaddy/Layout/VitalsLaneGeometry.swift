@@ -37,10 +37,6 @@ public struct VitalsLaneGeometry: Equatable, Sendable {
         return laneHeight - CGFloat(ratio) * laneHeight
     }
 
-    public func yPosition(for value: Int) -> CGFloat {
-        yPosition(for: Double(value))
-    }
-
     public func yPosition(for value: UInt8) -> CGFloat {
         yPosition(for: Double(value))
     }

@@ -38,7 +38,13 @@ public struct VitalsEnvelopeBuilder: Sendable {
             let columnEnd = viewport.start.addingTimeInterval(viewportSeconds * toRatio)
 
             var lower = session.index(for: columnStart)
-            var upper = session.index(for: columnEnd) + 1
+            let endIdx = session.index(for: columnEnd)
+            var upper: Int
+            if columnEnd >= session.endDate || columnEnd > session.date(at: endIdx) {
+                upper = endIdx + 1
+            } else {
+                upper = endIdx
+            }
 
             // Zoomed past 1:1 the slice can be narrower than one sample. Hold the
             // containing sample so the lane draws a step rather than a gap.

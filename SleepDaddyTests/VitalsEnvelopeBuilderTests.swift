@@ -68,15 +68,24 @@ struct VitalsEnvelopeBuilderTests {
     @Test func missingReadingsProduceAnEmptyColumnRatherThanABridge() {
         // All-missing middle third must not be spanned by the neighbours.
         var values = [UInt8](repeating: 95, count: 300)
-        for index in 99..<201 { values[index] = 0 }
+        for index in 100..<200 { values[index] = 0 }
         let subject = session(spo2: values)
+        let exactViewport = TimelineViewport(start: epoch, end: epoch.addingTimeInterval(600))
         let envelope = VitalsEnvelopeBuilder().build(
-            session: subject, viewport: fullViewport(subject), pixelWidth: 3
+            session: subject, viewport: exactViewport, pixelWidth: 3
         )
         #expect(envelope.columns[0].spo2Min == 95)
         #expect(envelope.columns[1].spo2Min == nil)
         #expect(envelope.columns[1].spo2Max == nil)
         #expect(envelope.columns[2].spo2Min == 95)
+    }
+
+    @Test func finalSampleIsIncludedInFullViewport() {
+        let subject = session(spo2: [90, 91, 92, 99])
+        let envelope = VitalsEnvelopeBuilder().build(
+            session: subject, viewport: fullViewport(subject), pixelWidth: 4
+        )
+        #expect(envelope.columns.last?.spo2Max == 99)
     }
 
     @Test func pulseIsEnvelopedIndependentlyOfSpO2() {
