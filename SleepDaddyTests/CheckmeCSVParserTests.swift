@@ -62,6 +62,37 @@ struct CheckmeCSVParserTests {
         #expect(session.spo2 == [96, 95])
     }
 
+    @Test func acceptsHeaderWithUTF8BOM() throws {
+        let bom = Data([0xEF, 0xBB, 0xBF])
+        let text = Self.header + "\n18:02:48 Aug 03 2026,96,70,0,0,0\n18:02:50 Aug 03 2026,95,69,1,0,0"
+        var data = bom
+        data.append(Data(text.utf8))
+        let session = try parse(data)
+        #expect(session.sampleCount == 2)
+        #expect(session.spo2 == [96, 95])
+    }
+
+    @Test func acceptsFourColumnHeader() throws {
+        let text = "Time,Oxygen Level,Pulse Rate,Motion\n18:02:48 Aug 03 2026,96,70,0\n18:02:50 Aug 03 2026,95,69,1"
+        let session = try parse(Data(text.utf8))
+        #expect(session.sampleCount == 2)
+        #expect(session.spo2 == [96, 95])
+    }
+
+    @Test func acceptsQuotedHeaderAndData() throws {
+        let text = "\"Time\",\"Oxygen Level\",\"Pulse Rate\",\"Motion\"\n\"18:02:48 Aug 03 2026\",\"96\",\"70\",\"0\"\n\"18:02:50 Aug 03 2026\",\"95\",\"69\",\"1\""
+        let session = try parse(Data(text.utf8))
+        #expect(session.sampleCount == 2)
+        #expect(session.spo2 == [96, 95])
+    }
+
+    @Test func acceptsSpO2Header() throws {
+        let text = "Time,SpO2,Pulse Rate,Motion\n18:02:48 Aug 03 2026,96,70,0\n18:02:50 Aug 03 2026,95,69,1"
+        let session = try parse(Data(text.utf8))
+        #expect(session.sampleCount == 2)
+        #expect(session.spo2 == [96, 95])
+    }
+
     @Test func rejectsAnUnrecognisedHeader() {
         let data = Data("Time,SpO2,HR\n18:02:48 Aug 03 2026,96,70".utf8)
         #expect(throws: VitalsImportError.self) { try parse(data) }

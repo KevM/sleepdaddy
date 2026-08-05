@@ -10,12 +10,13 @@ enum SelectedNightLayoutMode: Equatable {
 }
 
 public struct ContentView: View {
-    @State private var model: NightBrowserModel
+    @Bindable var model: NightBrowserModel
+    @State private var importErrorMessage: String?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.verticalSizeClass) private var verticalSizeClass
 
-    public init(model: NightBrowserModel? = nil) {
-        self._model = State(initialValue: model ?? NightBrowserModel())
+    public init(model: NightBrowserModel = NightBrowserModel()) {
+        self.model = model
     }
 
     private var currentLayoutMode: SelectedNightLayoutMode {
@@ -223,6 +224,28 @@ public struct ContentView: View {
             }
             .task(id: scenePhase) {
                 await model.handleScenePhaseChange(scenePhase)
+            }
+            .onOpenURL { url in
+                Task {
+                    do {
+                        try await model.importVitals(from: url)
+                    } catch let error as VitalsImportError {
+                        importErrorMessage = error.userMessage
+                    } catch {
+                        importErrorMessage = error.localizedDescription
+                    }
+                }
+            }
+            .alert(
+                "Import failed",
+                isPresented: Binding(
+                    get: { importErrorMessage != nil },
+                    set: { if !$0 { importErrorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) { importErrorMessage = nil }
+            } message: {
+                Text(importErrorMessage ?? "")
             }
         }
     }

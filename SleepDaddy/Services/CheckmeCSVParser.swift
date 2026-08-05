@@ -46,13 +46,18 @@ public struct CheckmeCSVParser: Sendable {
     public func parse(_ data: Data, fileName: String) throws -> VitalsSession {
         guard !data.isEmpty else { throw VitalsImportError.emptyFile }
 
-        let bytes = [UInt8](data)
+        var bytes = [UInt8](data)
+        if bytes.count >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF {
+            bytes.removeFirst(3)
+        }
+
         let lines = Self.splitLines(bytes)
         guard let headerLine = lines.first else { throw VitalsImportError.emptyFile }
 
         let header = String(decoding: bytes[headerLine], as: UTF8.self)
-            .trimmingCharacters(in: .whitespaces)
-        guard header == Self.expectedHeader else {
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\u{FEFF}", with: "")
+        guard Self.isValidHeader(header) else {
             throw VitalsImportError.unrecognisedHeader(found: header)
         }
 
@@ -65,6 +70,7 @@ public struct CheckmeCSVParser: Sendable {
 
         var startDate: Date?
         var lastTimestampText: Substring = ""
+        let trimSet = CharacterSet(charactersIn: " \"'\t\r\n\u{FEFF}")
 
         for (offset, range) in dataLines.enumerated() {
             let fields = Self.splitFields(bytes, range)
@@ -74,7 +80,7 @@ public struct CheckmeCSVParser: Sendable {
 
             if startDate == nil {
                 let text = String(decoding: bytes[fields[0]], as: UTF8.self)
-                    .trimmingCharacters(in: .whitespaces)
+                    .trimmingCharacters(in: trimSet)
                 guard let parsed = CheckmeTimestamp.parse(text, calendar: calendar) else {
                     throw VitalsImportError.unparseableTimestamp(line: offset + 2, text: text)
                 }
@@ -93,7 +99,7 @@ public struct CheckmeCSVParser: Sendable {
         guard let start = startDate else { throw VitalsImportError.noDataRows }
 
         let expectedEnd = start.addingTimeInterval(Double(spo2.count - 1) * VitalsSession.sampleInterval)
-        let trimmedLast = lastTimestampText.trimmingCharacters(in: .whitespaces)
+        let trimmedLast = String(lastTimestampText).trimmingCharacters(in: trimSet)
         guard let actualEnd = CheckmeTimestamp.parse(trimmedLast, calendar: calendar) else {
             throw VitalsImportError.unparseableTimestamp(line: dataLines.count + 1, text: trimmedLast)
         }
@@ -109,6 +115,29 @@ public struct CheckmeCSVParser: Sendable {
             motion: motion,
             sourceFileNames: [fileName]
         )
+    }
+
+    public static func isValidHeader(_ header: String) -> Bool {
+        let clean = header.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\u{FEFF}", with: "")
+        if clean == expectedHeader { return true }
+
+        let columns = clean.components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \"'\t\r\n\u{FEFF}")).lowercased() }
+
+        guard columns.count >= 4 else { return false }
+
+        let col0 = columns[0]
+        let col1 = columns[1]
+        let col2 = columns[2]
+        let col3 = columns[3]
+
+        let isCol0Time = col0.contains("time") || col0.contains("stamp") || col0.contains("date")
+        let isCol1Oxygen = col1.contains("oxygen") || col1.contains("spo2") || col1.contains("o2")
+        let isCol2Pulse = col2.contains("pulse") || col2.contains("pr") || col2.contains("heart") || col2.contains("hr")
+        let isCol3Motion = col3.contains("motion") || col3.contains("activity") || col3.contains("vibration") || col3.contains("move") || col3.contains("step") || col3.contains("mark")
+
+        return isCol0Time && isCol1Oxygen && isCol2Pulse && isCol3Motion
     }
 
     // MARK: - Byte scanning
@@ -152,7 +181,7 @@ public struct CheckmeCSVParser: Sendable {
                 value = value * 10 + Int(byte - 0x30)
                 sawDigit = true
                 if value > 255 { return 255 }
-            } else if byte == 0x20 || byte == 0x0D {
+            } else if byte == 0x20 || byte == 0x0D || byte == 0x22 || byte == 0x27 {
                 continue
             } else {
                 return nil

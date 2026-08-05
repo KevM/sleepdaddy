@@ -7,6 +7,27 @@ public struct VitalsImportButton: View {
     @State private var isPresented = false
     @State private var errorMessage: String?
 
+    /// Content types allowed in the file importer.
+    ///
+    /// Accepts `.commaSeparatedText`, `.plainText`, `.text`, `.data`, and UTTypes for `.csv`
+    /// files so that files tagged with generic text/data UTIs by Files app, cloud storage,
+    /// AirDrop, or email remain selectable.
+    public static var allowedContentTypes: [UTType] {
+        var types: [UTType] = [
+            .commaSeparatedText,
+            .plainText,
+            .text,
+            .data
+        ]
+        if let csvExtensionType = UTType(filenameExtension: "csv"), !types.contains(csvExtensionType) {
+            types.append(csvExtensionType)
+        }
+        if let csvMimeType = UTType(mimeType: "text/csv"), !types.contains(csvMimeType) {
+            types.append(csvMimeType)
+        }
+        return types
+    }
+
     public init(model: NightBrowserModel) {
         self.model = model
     }
@@ -19,7 +40,7 @@ public struct VitalsImportButton: View {
         }
         .fileImporter(
             isPresented: $isPresented,
-            allowedContentTypes: [.commaSeparatedText],
+            allowedContentTypes: Self.allowedContentTypes,
             allowsMultipleSelection: true
         ) { result in
             Task { await handle(result) }

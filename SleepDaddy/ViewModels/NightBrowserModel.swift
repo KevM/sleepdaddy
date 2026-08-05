@@ -329,7 +329,7 @@ public final class NightBrowserModel: @unchecked Sendable {
         assembledNights[index] = assembledNights[index].withVitalsExtent(extent)
     }
 
-    /// Imports a CSV and refreshes the current night if the recording lands on it.
+    /// Imports a CSV and selects the night of the recording.
     @MainActor
     public func importVitals(from url: URL) async throws {
         guard let vitalsStore else { return }
@@ -337,7 +337,8 @@ public final class NightBrowserModel: @unchecked Sendable {
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
 
         let data = try Data(contentsOf: url)
-        try vitalsStore.importRecording(data, originalName: url.lastPathComponent)
+        let descriptor = try vitalsStore.importRecording(data, originalName: url.lastPathComponent)
+        selectNight(descriptor.start)
         await loadVitalsForSelectedNight()
     }
 }

@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import UniformTypeIdentifiers
 @testable import SleepDaddy
 
 /// An in-memory store so the model can be exercised without touching the file system.
@@ -175,14 +176,52 @@ struct NightBrowserModelVitalsTests {
         model.selectPreviousNight()
         await nightALoad
 
-        // Night A's load returns after the selection moved. Hold the invariant across a
-        // window wide enough that a stale write would have landed inside it.
-        for _ in 0..<20 {
+        // Night A's load returns after the selection moved. Watch across a window wide
+        // enough that a stale write would have landed inside it, and report once rather
+        // than recording the same failure on every poll.
+        var leaked = false
+        for _ in 0..<20 where !leaked {
             try await Task.sleep(nanoseconds: 10_000_000)
-            #expect(model.selectedVitalsSession == nil)
-            #expect(model.selectedDesaturationEvents.isEmpty)
-            #expect(model.selectedAssembledNight?.vitalsExtent == nil)
+            leaked = model.selectedVitalsSession != nil
+                || !model.selectedDesaturationEvents.isEmpty
+                || model.selectedAssembledNight?.vitalsExtent != nil
         }
+        #expect(!leaked, "night A's recording landed on night B after the selection moved")
+    }
+
+    @Test func importVitalsAutoSelectsTheNightOfTheRecording() async throws {
+        let store = InMemoryVitalsStore()
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(), vitalsStore: store, now: { Date() }
+        )
+        await model.loadData()
+
+        let prevNight = model.assembledNights[model.currentNightIndex! - 1]
+
+        let df = DateFormatter()
+        df.dateFormat = "HH:mm:ss MMM dd yyyy"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = Calendar.current.timeZone
+        let stamp1 = df.string(from: prevNight.detectedStart)
+        let stamp2 = df.string(from: prevNight.detectedStart.addingTimeInterval(2))
+        let text = "Time,Oxygen Level,Pulse Rate,Motion\n\(stamp1),96,70,0\n\(stamp2),95,69,0"
+
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("test_import.csv")
+        try Data(text.utf8).write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        try await model.importVitals(from: tempURL)
+
+        #expect(Calendar.current.isDate(model.selectedDate, inSameDayAs: prevNight.date))
+        #expect(model.selectedVitalsSession != nil)
+    }
+
+    @Test func allowedContentTypesIncludesTextAndDataFallbackTypes() {
+        let types = VitalsImportButton.allowedContentTypes
+        #expect(types.contains(.commaSeparatedText))
+        #expect(types.contains(.plainText))
+        #expect(types.contains(.text))
+        #expect(types.contains(.data))
     }
 
     /// Polls `condition` until it holds, bounded by wall clock.
