@@ -48,6 +48,7 @@ public final class NightBrowserModel: @unchecked Sendable {
     private let now: @Sendable () -> Date
     private var allFetchedIntervals: [NormalizedSleepInterval] = []
     private var isLoading = false
+    private var vitalsTask: Task<Void, Never>?
 
     public init(
         store: HealthKitSleepStoreProtocol = HealthKitSleepStore(),
@@ -172,9 +173,7 @@ public final class NightBrowserModel: @unchecked Sendable {
         if !preservingViewport {
             resetViewportToSelectedNight()
         }
-        Task { @MainActor in
-            await loadVitalsForSelectedNight()
-        }
+        attachVitalsExtent(selectedVitalsSession?.dateInterval)
     }
 
     public func resetViewportToSelectedNight() {
@@ -275,6 +274,9 @@ public final class NightBrowserModel: @unchecked Sendable {
     /// and parse. It never touches rendering, which reads the in-memory arrays.
     @MainActor
     public func loadVitalsForSelectedNight() async {
+        let targetDate = selectedDate
+        vitalsTask?.cancel()
+
         guard let vitalsStore, let night = selectedAssembledNight else {
             selectedVitalsSession = nil
             selectedDesaturationEvents = []
@@ -289,10 +291,18 @@ public final class NightBrowserModel: @unchecked Sendable {
         )
 
         let detector = self.detector
-        let loaded: (VitalsSession, [DesaturationEvent])? = await Task.detached(priority: .userInitiated) {
+        let workTask: Task<(VitalsSession, [DesaturationEvent])?, Never> = Task.detached(priority: .userInitiated) {
             guard let session = try? vitalsStore.session(covering: searchWindow) else { return nil }
             return (session, detector.events(in: session))
-        }.value
+        }
+
+        vitalsTask = Task { @MainActor in
+            _ = await workTask.value
+        }
+
+        let loaded = await workTask.value
+
+        guard !Task.isCancelled, selectedDate == targetDate else { return }
 
         guard let (session, events) = loaded else {
             selectedVitalsSession = nil

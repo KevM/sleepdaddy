@@ -5,6 +5,7 @@ import Foundation
 /// An in-memory store so the model can be exercised without touching the file system.
 final class InMemoryVitalsStore: VitalsStore, @unchecked Sendable {
     var sessions: [VitalsSession] = []
+    var loadDelayNanoseconds: UInt64 = 0
 
     func importRecording(_ data: Data, originalName: String) throws -> VitalsRecordingDescriptor {
         let session = try CheckmeCSVParser().parse(data, fileName: originalName)
@@ -29,7 +30,10 @@ final class InMemoryVitalsStore: VitalsStore, @unchecked Sendable {
     }
 
     func loadSession(for descriptor: VitalsRecordingDescriptor) throws -> VitalsSession {
-        sessions.first { $0.startDate == descriptor.start }!
+        if loadDelayNanoseconds > 0 {
+            Thread.sleep(forTimeInterval: Double(loadDelayNanoseconds) / 1_000_000_000.0)
+        }
+        return sessions.first { $0.startDate == descriptor.start }!
     }
 
     func originalCSV(for descriptor: VitalsRecordingDescriptor) throws -> Data { Data() }
@@ -140,5 +144,26 @@ struct NightBrowserModelVitalsTests {
         try await Task.sleep(nanoseconds: 50_000_000)
 
         #expect(model.selectedAssembledNight?.vitalsExtent != nil)
+    }
+
+    @Test func rapidDateChangesDiscardStaleVitalsFromEarlierNight() async throws {
+        let store = InMemoryVitalsStore()
+        store.loadDelayNanoseconds = 100_000_000 // 100ms artificial delay in session loading
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(), vitalsStore: store, now: { Date() }
+        )
+        await model.loadData()
+
+        let nightA = try #require(model.selectedAssembledNight)
+        store.sessions = [session(start: nightA.detectedStart, count: 1_000)]
+
+        // Fast tap to previous night before Night A finishes loading
+        model.selectPreviousNight()
+
+        // Wait long enough for Night A's delayed load to finish
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        // Night B has no vitals session, so selectedVitalsSession must remain nil (not Night A's)
+        #expect(model.selectedVitalsSession == nil)
     }
 }
