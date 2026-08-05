@@ -33,24 +33,24 @@ final class AppStoreScreenshots: XCTestCase {
         // Tap a Core interval near 3 AM to raise the inspector. The canvas is a
         // drawn surface, so target it positionally rather than by element.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.53, dy: 0.65)).tap()
+        let inspector = app.staticTexts["Interval Details"]
+        XCTAssertTrue(inspector.waitForExistence(timeout: 5), "Interval inspector never appeared")
         settle()
         capture("02-interval-inspector")
         dismissSheet()
 
         let filter = app.buttons["Filter sleep sources"]
-        if filter.waitForExistence(timeout: 5) {
-            filter.tap()
-            settle()
-            capture("03-source-filter")
-            dismissSheet()
-        }
+        XCTAssertTrue(filter.waitForExistence(timeout: 5), "Source filter button never appeared")
+        filter.tap()
+        settle()
+        capture("03-source-filter")
+        dismissSheet()
 
-        if settings.waitForExistence(timeout: 5) {
-            settings.tap()
-            settle()
-            capture("04-settings")
-            dismissSheet()
-        }
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "Settings button never came back")
+        settings.tap()
+        settle()
+        capture("04-settings")
+        dismissSheet()
 
         XCUIDevice.shared.orientation = .landscapeLeft
         settle(seconds: 2)

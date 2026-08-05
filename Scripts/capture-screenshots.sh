@@ -47,8 +47,11 @@ resolve_simulator() {
   # No match is the ordinary first-run case, not an error — the creation loop
   # below handles it. Say so with `|| true` so the lookup stays safe under
   # `set -e` wherever this function ends up being called from.
+  # `available` excludes devices whose runtime has since been removed. Without it
+  # a stale entry still matches by name and hands back a valid-looking UDID that
+  # cannot boot, and the creation loop below never runs.
   udid="$(
-    xcrun simctl list devices \
+    xcrun simctl list devices available \
       | grep -F "$name (" \
       | head -1 \
       | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' \
