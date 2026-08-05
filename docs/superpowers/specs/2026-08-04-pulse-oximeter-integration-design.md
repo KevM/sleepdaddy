@@ -105,9 +105,10 @@ Samples are held **columnar** — three `[UInt8]` arrays rather than an array of
 
 ```swift
 public struct VitalsSession: Identifiable, Hashable, Sendable {
+    public static let sampleInterval: TimeInterval = 2.0
+
     public let id: String
     public let startDate: Date
-    public let sampleInterval: TimeInterval   // 2.0
     public let spo2: [UInt8]                  // 0 == missing
     public let pulse: [UInt8]                 // 0 == missing
     public let motion: [UInt8]
@@ -345,8 +346,13 @@ not justify a second serialization path, and three properties favor keeping the 
 
 #### Compression
 
-Stored files are zlib-compressed at **level 6** via `NSData.compressed(using:)`, measured
-on the reference export:
+Stored files are zlib-compressed via `NSData.compressed(using: .zlib)`.
+
+**Apple's API exposes no compression level** — the Compression framework chooses. The
+table below measures the reference export across zlib levels to establish the shape of
+the tradeoff; the shipped implementation takes whatever the framework selects, which
+lands close to the level-6 row. Adding a third-party zlib to pin an exact level would
+cost a dependency to buy a few kilobytes per night, which is not a trade worth making.
 
 | Level | Size | Ratio | Compress (once, at import) | Decompress |
 | --- | --- | --- | --- | --- |
@@ -354,8 +360,9 @@ on the reference export:
 | **zlib-6** | **96 KB** | **7.7×** | **10 ms** | **0.23 ms** |
 | zlib-9 | 91 KB | 8.1× | 74 ms | 0.23 ms |
 
-Level 6 captures 95% of the available reduction for a seventh of the CPU of level 9. The
-remaining 5 KB per night does not justify the difference.
+The spread across levels is small in absolute terms — 120 KB to 91 KB — which is why
+ceding the choice to the framework is acceptable. The remaining kilobytes per night do
+not justify a dependency.
 
 Decompression at roughly 3 GB/s costs **0.23 ms for a full night** — an order of magnitude
 less than merely splitting the file into rows. It occurs once per night selection, on the
