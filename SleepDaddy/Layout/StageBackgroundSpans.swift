@@ -37,6 +37,17 @@ public struct StageBackgroundSpans: Equatable, Sendable {
     /// Matches the tolerance `stepSegments` uses to decide two intervals touch.
     private static let abuttingTolerance: TimeInterval = 0.001
 
+    /// The stages the wash actually paints, once each, in timeline row order.
+    ///
+    /// Derived from the same `.inBed` rule the wash uses, so the legend cannot come to
+    /// name a colour that is not on screen. `SleepStage.allCases` is already in row order,
+    /// which is the order the stage plot stacks its rows in, so the chips read down the
+    /// plot rather than in order of first appearance.
+    public static func legendStages(in intervals: [NormalizedSleepInterval]) -> [SleepStage] {
+        let present = Set(intervals.map(\.stage))
+        return SleepStage.allCases.filter { present.contains($0) && $0 != .inBed }
+    }
+
     public init(intervals: [NormalizedSleepInterval], geometry: SleepTimelineGeometry) {
         let staged = intervals
             .filter { $0.stage != .inBed }

@@ -161,6 +161,44 @@ struct StageBackgroundSpansTests {
         #expect(spans.transitions.isEmpty)
     }
 
+    // MARK: - Legend
+
+    /// The legend names what the wash paints, so it is derived from the same rule rather
+    /// than a parallel list that could drift out of agreement with it.
+    @Test func theLegendExcludesInBedJustAsTheWashDoes() {
+        let stages = StageBackgroundSpans.legendStages(in: [
+            interval(600, 700, .core),
+            interval(700, 800, .inBed),
+        ])
+        #expect(stages == [.core])
+    }
+
+    @Test func theLegendListsStagesInTimelineRowOrder() {
+        let stages = StageBackgroundSpans.legendStages(in: [
+            interval(600, 700, .deep),
+            interval(700, 800, .awake),
+            interval(800, 900, .core),
+            interval(900, 1_000, .rem),
+        ])
+        #expect(stages == [.awake, .rem, .core, .deep])
+    }
+
+    /// A stage recurs many times across a night; it earns one chip, not one per interval.
+    @Test func theLegendNamesEachStageOnce() {
+        let stages = StageBackgroundSpans.legendStages(in: [
+            interval(600, 700, .core),
+            interval(700, 800, .rem),
+            interval(800, 900, .core),
+            interval(900, 1_000, .core),
+        ])
+        #expect(stages == [.rem, .core])
+    }
+
+    @Test func theLegendIsEmptyWhenNothingIsWashed() {
+        #expect(StageBackgroundSpans.legendStages(in: []).isEmpty)
+        #expect(StageBackgroundSpans.legendStages(in: [interval(600, 700, .inBed)]).isEmpty)
+    }
+
     @Test func anEmptyNightProducesNothingToDraw() {
         let spans = StageBackgroundSpans(intervals: [], geometry: geometry())
         #expect(spans.spans.isEmpty)

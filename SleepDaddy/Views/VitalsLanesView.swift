@@ -80,14 +80,16 @@ public struct VitalsLanesView: View {
                         }
                     }
                 }
+                stageLegend
                 legend
             }
         }
         .frame(height: Self.totalHeight)
     }
 
+    /// Two legend rows and the gaps around them on top of the lanes themselves.
     static var totalHeight: CGFloat {
-        DesaturationRailView.railHeight + spo2LaneHeight + pulseLaneHeight + 60
+        DesaturationRailView.railHeight + spo2LaneHeight + pulseLaneHeight + 84
     }
 
     private func labelled<Content: View>(
@@ -102,23 +104,72 @@ public struct VitalsLanesView: View {
         }
     }
 
-    /// Numeric labels, never verdicts. The threshold is a display choice; a word like
-    /// "Critical" would be an interpretation, which the app does not make.
-    private var legend: some View {
-        HStack(spacing: 12) {
-            ForEach(VitalsColorZone.allCases, id: \.self) { zone in
-                HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(zone.color)
-                        .frame(width: 9, height: 9)
-                    Text(zone.legendLabel)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+    /// Names the stage wash behind the lanes.
+    ///
+    /// Carries the label column like the lanes above it, so it reads as a row of this
+    /// chart rather than as a second key for the stage plot. Without it the wash could be
+    /// seen but not identified: at wash weight core, deep and REM are close enough that
+    /// telling them apart meant counting bands against the plot above.
+    ///
+    /// Chips are the saturated `themeColor`, matching the stage plot, not the pale wash —
+    /// a nine-point swatch at wash opacity is far less legible than the same colour spread
+    /// across a whole band, so matching the alpha would not have matched the appearance.
+    private var stageLegend: some View {
+        let stages = StageBackgroundSpans.legendStages(in: night.displayLaneIntervals)
+        return Group {
+            if stages.isEmpty {
+                EmptyView()
+            } else {
+                labelled("STAGE") {
+                    HStack(spacing: 10) {
+                        ForEach(stages, id: \.self) { stage in
+                            HStack(spacing: 4) {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .fill(stage.themeColor)
+                                    .frame(width: 9, height: 9)
+                                Text(stage.displayName)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(
+                        "Lane background shows sleep stage: "
+                            + stages.map(\.displayName).joined(separator: ", ")
+                    )
                 }
             }
         }
-        .padding(.leading, Self.labelWidth)
-        .accessibilityElement(children: .combine)
+    }
+
+    /// Numeric labels, never verdicts. The threshold is a display choice; a word like
+    /// "Critical" would be an interpretation, which the app does not make.
+    /// Labelled like the stage legend above it. Two unlabelled chip rows stacked read as
+    /// one wrapped row, and the series blue here is a near match for the core-stage chip
+    /// directly above, so the label is what keeps the two keys apart.
+    private var legend: some View {
+        labelled("SpO₂") {
+            HStack(spacing: 12) {
+                ForEach(VitalsColorZone.allCases, id: \.self) { zone in
+                    HStack(spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(zone.color)
+                            .frame(width: 9, height: 9)
+                        Text(zone.legendLabel)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+        }
     }
 }
 
