@@ -82,6 +82,11 @@ public struct VitalsLanesView: View {
                         }
                     }
                 }
+                labelled("STAGE") {
+                    StageRibbonView(
+                        intervals: night.displayLaneIntervals, geometry: geometry
+                    )
+                }
                 stageLegend
                 legend
             }
@@ -89,9 +94,15 @@ public struct VitalsLanesView: View {
         .frame(height: Self.totalHeight)
     }
 
-    /// Two legend rows and the gaps around them on top of the lanes themselves.
+    /// The ribbon, two legend rows, and the gaps around them, on top of the lanes.
     static var totalHeight: CGFloat {
-        DesaturationRailView.railHeight + spo2LaneHeight + pulseLaneHeight + 84
+        DesaturationRailView.railHeight + spo2LaneHeight + pulseLaneHeight
+            + StageRibbonView.ribbonHeight + 92
+    }
+
+    /// Aligns a row with the lane content without repeating the label above it.
+    private func indented<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content().padding(.leading, Self.labelWidth)
     }
 
     private func labelled<Content: View>(
@@ -113,26 +124,23 @@ public struct VitalsLanesView: View {
     /// seen but not identified: at wash weight core, deep and REM are close enough that
     /// telling them apart meant counting bands against the plot above.
     ///
-    /// Chips are painted at the wash's own opacity, through the same `washColor` the
-    /// bands use, so a chip is the colour on screen. A saturated chip would have been
-    /// easier to see and useless for the one job the legend has: matching a band to a
-    /// name. They are drawn wide rather than square to make up in area what they give up
-    /// in alpha.
+    /// Chips are the ribbon's own full-strength colours, and the row sits directly under
+    /// the labelled ribbon it explains rather than carrying a second STAGE label. The
+    /// wash needs no chips of its own: it has two tones, and the awake tone is a pale
+    /// version of the awake chip immediately beside it.
     private var stageLegend: some View {
         let stages = StageBackgroundSpans.legendStages(in: night.displayLaneIntervals)
         return Group {
             if stages.isEmpty {
                 EmptyView()
             } else {
-                labelled("STAGE") {
+                indented {
                     HStack(spacing: 10) {
                         ForEach(stages, id: \.self) { stage in
                             HStack(spacing: 4) {
                                 RoundedRectangle(cornerRadius: 2)
-                                    .fill(StageBackgroundLane.washColor(
-                                        for: stage, isDark: colorScheme == .dark
-                                    ))
-                                    .frame(width: 24, height: 12)
+                                    .fill(stage.themeColor)
+                                    .frame(width: 14, height: 9)
                                 Text(stage.displayName)
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
@@ -144,7 +152,7 @@ public struct VitalsLanesView: View {
                     }
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(
-                        "Lane background shows sleep stage: "
+                        "Stage ribbon: "
                             + stages.map(\.displayName).joined(separator: ", ")
                     )
                 }

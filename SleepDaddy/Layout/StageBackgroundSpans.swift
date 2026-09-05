@@ -37,29 +37,30 @@ public struct StageBackgroundSpans: Equatable, Sendable {
     /// Matches the tolerance `stepSegments` uses to decide two intervals touch.
     private static let abuttingTolerance: TimeInterval = 0.001
 
-    /// How heavily `stage` is washed behind the lanes.
+    /// The wash carries two tones rather than one per stage.
     ///
-    /// Shared with the legend, which draws its chips at exactly this opacity so a chip is
-    /// the colour on screen rather than a saturated stand-in that has to be mentally
-    /// discounted. The chips are drawn wider than tall to make up in area what they give
-    /// up in alpha.
+    /// Four pale hues on white cannot be told apart. Measured as CIE ΔE on the blended
+    /// colours, REM against core came to 2.6 — below the level at which a difference
+    /// registers at all — and raising alpha does not rescue it: even at 0.80, where the
+    /// wash stops being a background, the palette tops out near 12. Only awake against
+    /// asleep clears a usable margin, because coral against blue is a hue difference
+    /// rather than a lightness one.
     ///
-    /// The two schemes sit close together, which is not the obvious answer. REM, core and
-    /// deep are all blue, so what has to survive is the distance *between* them, and
-    /// blending toward white compresses the dark blues hardest: on white, alpha 0.14 left
-    /// REM and core 9.7 apart in RGB against 16.2 for alpha 0.24 on near black. Light
-    /// needed raising to roughly match dark, not lowering.
+    /// So the wash keeps the distinction that survives, and exact stage identity moved to
+    /// the ribbon, where full saturation is available because nothing is drawn over it.
+    public enum WashTone: Sendable, Equatable { case awake, asleep }
+
+    public static func washTone(for stage: SleepStage) -> WashTone {
+        stage == .awake ? .awake : .asleep
+    }
+
+    /// How heavily the wash is laid down.
     ///
-    /// Awake is carried lighter in both schemes. Its coral is the one warm stage colour,
-    /// and warm is already spoken for in the SpO₂ lane by the amber and red bands, so it
-    /// is held back to keep the warm signal in the lane the reading, not the ground.
-    public static func washOpacity(for stage: SleepStage, isDark: Bool) -> Double {
-        switch (stage, isDark) {
-        case (.awake, true): return 0.17
-        case (.awake, false): return 0.18
-        case (_, true): return 0.24
-        case (_, false): return 0.25
-        }
+    /// One value per scheme: with only two tones there is no inter-stage separation left
+    /// to buy with alpha, so this is set purely by how far the ground may go before it
+    /// competes with the envelope drawn over it.
+    public static func washOpacity(isDark: Bool) -> Double {
+        isDark ? 0.26 : 0.30
     }
 
     /// The stages the wash actually paints, once each, in timeline row order.

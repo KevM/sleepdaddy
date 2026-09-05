@@ -161,30 +161,30 @@ struct StageBackgroundSpansTests {
         #expect(spans.transitions.isEmpty)
     }
 
-    // MARK: - Wash opacity
+    // MARK: - Wash tone
 
-    /// The legend draws its chips at exactly this opacity, so a chip shows the colour that
-    /// is actually on screen. These two rules are the whole reason the table is shared
-    /// rather than duplicated at each call site.
-    @Test func awakeIsWashedLighterThanTheOtherStages() {
-        for isDark in [true, false] {
-            let awake = StageBackgroundSpans.washOpacity(for: .awake, isDark: isDark)
-            let core = StageBackgroundSpans.washOpacity(for: .core, isDark: isDark)
-            #expect(awake < core)
+    /// The wash carries two tones, not one per stage. Four pale hues on white cannot be
+    /// told apart — measured at ΔE 2.6 between REM and core, below the threshold where a
+    /// difference registers at all — so exact stage identity moved to the ribbon and the
+    /// wash keeps only the distinction that survives: awake against asleep.
+    @Test func awakeWashesAsItsOwnTone() {
+        #expect(StageBackgroundSpans.washTone(for: .awake) == .awake)
+    }
+
+    @Test func everySleepingStageSharesOneWashTone() {
+        for stage in [SleepStage.rem, .core, .deep, .asleepUnspecified] {
+            #expect(StageBackgroundSpans.washTone(for: stage) == .asleep)
         }
     }
 
-    /// Every washed stage has to be faint enough to stay behind the envelope and strong
-    /// enough to be seen at all. The two schemes land close together — an earlier version
-    /// assumed dark needed markedly more alpha, which measuring the blended colours
-    /// disproved — so neither is asserted to exceed the other.
-    @Test func everyWashedStageIsFaintButVisibleInBothSchemes() {
-        for stage in [SleepStage.awake, .rem, .core, .deep, .asleepUnspecified] {
-            for isDark in [true, false] {
-                let opacity = StageBackgroundSpans.washOpacity(for: stage, isDark: isDark)
-                #expect(opacity > 0.05)
-                #expect(opacity < 0.35)
-            }
+    // MARK: - Wash opacity
+
+    /// Faint enough to stay behind the envelope, strong enough to be seen at all.
+    @Test func theWashIsFaintButVisibleInBothSchemes() {
+        for isDark in [true, false] {
+            let opacity = StageBackgroundSpans.washOpacity(isDark: isDark)
+            #expect(opacity > 0.05)
+            #expect(opacity < 0.35)
         }
     }
 

@@ -24,10 +24,15 @@ public struct StageBackgroundLane: View {
         self.geometry = geometry
     }
 
-    /// The exact colour a stage band is painted in. The legend calls this too, so a chip
-    /// and the band it names cannot come to differ.
+    /// The colour a stage band is washed in — one of two, per `washTone`. Awake keeps its
+    /// coral; every sleeping stage shares core's blue, because the wash cannot carry more
+    /// than that distinction and pretending otherwise showed four bands that were not
+    /// actually distinguishable.
     public static func washColor(for stage: SleepStage, isDark: Bool) -> Color {
-        stage.themeColor.opacity(StageBackgroundSpans.washOpacity(for: stage, isDark: isDark))
+        let base: Color = StageBackgroundSpans.washTone(for: stage) == .awake
+            ? SleepStage.awake.themeColor
+            : SleepStage.core.themeColor
+        return base.opacity(StageBackgroundSpans.washOpacity(isDark: isDark))
     }
 
     public var body: some View {
