@@ -17,6 +17,10 @@ public struct VitalsLanesView: View {
     private static let labelWidth: CGFloat = 68
     private static let spo2LaneHeight: CGFloat = 56
     private static let pulseLaneHeight: CGFloat = 44
+    private static let laneSpacing: CGFloat = 6
+
+    /// Both envelope lanes and the gap between them, so the wash behind them is continuous.
+    private static let washHeight: CGFloat = spo2LaneHeight + laneSpacing + pulseLaneHeight
 
     public init(
         session: VitalsSession,
@@ -49,19 +53,32 @@ public struct VitalsLanesView: View {
                 pixelWidth: Int(plotWidth.rounded())
             )
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Self.laneSpacing) {
                 labelled("EVENTS") {
                     DesaturationRailView(events: events, geometry: geometry)
                 }
-                labelled("SpO₂") {
-                    VitalsEnvelopeLane(
-                        envelope: envelope, measure: .spo2, laneHeight: Self.spo2LaneHeight
+                // One wash spanning both lanes, so a transition rule runs unbroken through
+                // SpO₂ and pulse together and a dip can be lined up against it by eye.
+                ZStack(alignment: .topLeading) {
+                    StageBackgroundLane(
+                        intervals: night.displayLaneIntervals, geometry: geometry
                     )
-                }
-                labelled("PULSE") {
-                    VitalsEnvelopeLane(
-                        envelope: envelope, measure: .pulse, laneHeight: Self.pulseLaneHeight
-                    )
+                    .frame(width: plotWidth, height: Self.washHeight)
+                    .padding(.leading, Self.labelWidth)
+                    .allowsHitTesting(false)
+
+                    VStack(alignment: .leading, spacing: Self.laneSpacing) {
+                        labelled("SpO₂") {
+                            VitalsEnvelopeLane(
+                                envelope: envelope, measure: .spo2, laneHeight: Self.spo2LaneHeight
+                            )
+                        }
+                        labelled("PULSE") {
+                            VitalsEnvelopeLane(
+                                envelope: envelope, measure: .pulse, laneHeight: Self.pulseLaneHeight
+                            )
+                        }
+                    }
                 }
                 legend
             }
@@ -118,11 +135,34 @@ public struct VitalsLanesView: View {
         motion: [UInt8](repeating: 0, count: 3_600),
         sourceFileNames: ["preview.csv"]
     )
+    // Bounds are seconds into a 7,198s recording — the sample interval is 2s, so they are
+    // twice the sample indices above. Staged so the preview exercises both questions the
+    // wash exists to answer: the 82% dip (samples 1,200–1,260, so 2,400–2,520s) begins
+    // exactly on a core→deep transition, and the 73% dip (samples 2,400–2,430, so
+    // 4,800–4,860s) sits inside REM.
+    let stages: [(TimeInterval, TimeInterval, SleepStage)] = [
+        (0, 1_200, .awake),
+        (1_200, 2_400, .core),
+        (2_400, 3_600, .deep),
+        (3_600, 4_700, .core),
+        (4_700, 5_400, .rem),
+        (5_400, 7_198, .core),
+    ]
+    let intervals = stages.map { begin, end, stage in
+        NormalizedSleepInterval(
+            id: "preview-\(stage.rawValue)-\(Int(begin))",
+            startDate: start.addingTimeInterval(begin),
+            endDate: start.addingTimeInterval(end),
+            stage: stage,
+            sourceName: "Preview",
+            sourceIdentifier: "preview"
+        )
+    }
     let night = AssembledNight(
         date: start,
         coreWindowStart: start, coreWindowEnd: session.endDate,
         detectedStart: start, detectedEnd: session.endDate,
-        rawIntervals: [], primaryLaneIntervals: [], displayLaneIntervals: [],
+        rawIntervals: intervals, primaryLaneIntervals: intervals, displayLaneIntervals: intervals,
         conflicts: [], summary: .empty, hasSleepData: true,
         vitalsExtent: session.dateInterval
     )
