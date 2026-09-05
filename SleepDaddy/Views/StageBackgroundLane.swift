@@ -19,44 +19,26 @@ public struct StageBackgroundLane: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    /// Low enough that the envelope always reads as the foreground, high enough that the
-    /// darker stages stay apart from one another.
-    ///
-    /// Higher on dark: four of the six stage colours are already dark, so against a near
-    /// black ground the same alpha that separates them on white collapses core, deep and
-    /// REM into one blue-grey. Checked against a full night of real recording at both
-    /// zoom levels.
-    private static let washOpacity: Double = 0.14
-    private static let darkWashOpacity: Double = 0.24
-
-    /// The one pair the wash cannot separate by weight alone is awake's coral against a
-    /// warning-amber column, both warm. Awake is carried lighter so the warm signal in the
-    /// lane stays the reading rather than the background.
-    private static let awakeWashOpacity: Double = 0.10
-    private static let darkAwakeWashOpacity: Double = 0.17
-
     public init(intervals: [NormalizedSleepInterval], geometry: SleepTimelineGeometry) {
         self.intervals = intervals
         self.geometry = geometry
     }
 
-    private var washOpacity: Double {
-        colorScheme == .dark ? Self.darkWashOpacity : Self.washOpacity
-    }
-
-    private var awakeWashOpacity: Double {
-        colorScheme == .dark ? Self.darkAwakeWashOpacity : Self.awakeWashOpacity
+    /// The exact colour a stage band is painted in. The legend calls this too, so a chip
+    /// and the band it names cannot come to differ.
+    public static func washColor(for stage: SleepStage, isDark: Bool) -> Color {
+        stage.themeColor.opacity(StageBackgroundSpans.washOpacity(for: stage, isDark: isDark))
     }
 
     public var body: some View {
         Canvas { context, size in
             let layout = StageBackgroundSpans(intervals: intervals, geometry: geometry)
 
+            let isDark = colorScheme == .dark
             for span in layout.spans {
-                let opacity = span.stage == .awake ? awakeWashOpacity : washOpacity
                 context.fill(
                     Path(CGRect(x: span.startX, y: 0, width: span.width, height: size.height)),
-                    with: .color(span.stage.themeColor.opacity(opacity))
+                    with: .color(Self.washColor(for: span.stage, isDark: isDark))
                 )
             }
 

@@ -13,6 +13,8 @@ public struct VitalsLanesView: View {
     let viewportStart: Date
     let viewportEnd: Date
 
+    @Environment(\.colorScheme) private var colorScheme
+
     /// Matches `SleepTimelineCanvas`'s stage-label column so the x axes line up.
     private static let labelWidth: CGFloat = 68
     private static let spo2LaneHeight: CGFloat = 56
@@ -111,9 +113,11 @@ public struct VitalsLanesView: View {
     /// seen but not identified: at wash weight core, deep and REM are close enough that
     /// telling them apart meant counting bands against the plot above.
     ///
-    /// Chips are the saturated `themeColor`, matching the stage plot, not the pale wash —
-    /// a nine-point swatch at wash opacity is far less legible than the same colour spread
-    /// across a whole band, so matching the alpha would not have matched the appearance.
+    /// Chips are painted at the wash's own opacity, through the same `washColor` the
+    /// bands use, so a chip is the colour on screen. A saturated chip would have been
+    /// easier to see and useless for the one job the legend has: matching a band to a
+    /// name. They are drawn wide rather than square to make up in area what they give up
+    /// in alpha.
     private var stageLegend: some View {
         let stages = StageBackgroundSpans.legendStages(in: night.displayLaneIntervals)
         return Group {
@@ -125,8 +129,10 @@ public struct VitalsLanesView: View {
                         ForEach(stages, id: \.self) { stage in
                             HStack(spacing: 4) {
                                 RoundedRectangle(cornerRadius: 2)
-                                    .fill(stage.themeColor)
-                                    .frame(width: 9, height: 9)
+                                    .fill(StageBackgroundLane.washColor(
+                                        for: stage, isDark: colorScheme == .dark
+                                    ))
+                                    .frame(width: 24, height: 12)
                                 Text(stage.displayName)
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)

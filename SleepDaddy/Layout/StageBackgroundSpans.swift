@@ -37,6 +37,31 @@ public struct StageBackgroundSpans: Equatable, Sendable {
     /// Matches the tolerance `stepSegments` uses to decide two intervals touch.
     private static let abuttingTolerance: TimeInterval = 0.001
 
+    /// How heavily `stage` is washed behind the lanes.
+    ///
+    /// Shared with the legend, which draws its chips at exactly this opacity so a chip is
+    /// the colour on screen rather than a saturated stand-in that has to be mentally
+    /// discounted. The chips are drawn wider than tall to make up in area what they give
+    /// up in alpha.
+    ///
+    /// The two schemes sit close together, which is not the obvious answer. REM, core and
+    /// deep are all blue, so what has to survive is the distance *between* them, and
+    /// blending toward white compresses the dark blues hardest: on white, alpha 0.14 left
+    /// REM and core 9.7 apart in RGB against 16.2 for alpha 0.24 on near black. Light
+    /// needed raising to roughly match dark, not lowering.
+    ///
+    /// Awake is carried lighter in both schemes. Its coral is the one warm stage colour,
+    /// and warm is already spoken for in the SpO₂ lane by the amber and red bands, so it
+    /// is held back to keep the warm signal in the lane the reading, not the ground.
+    public static func washOpacity(for stage: SleepStage, isDark: Bool) -> Double {
+        switch (stage, isDark) {
+        case (.awake, true): return 0.17
+        case (.awake, false): return 0.18
+        case (_, true): return 0.24
+        case (_, false): return 0.25
+        }
+    }
+
     /// The stages the wash actually paints, once each, in timeline row order.
     ///
     /// Derived from the same `.inBed` rule the wash uses, so the legend cannot come to
