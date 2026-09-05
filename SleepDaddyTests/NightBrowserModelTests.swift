@@ -14,7 +14,7 @@ struct NightBrowserModelTests {
         await model.loadData()
 
         #expect(model.appState == .loaded)
-        #expect(model.assembledNights.count == 14) // 14 nights overview strip
+        #expect(model.assembledNights.count == NightBrowserModel.overviewNightCount)
         #expect(!model.availableSources.isEmpty)
     }
 
@@ -54,6 +54,37 @@ struct NightBrowserModelTests {
         let prefsStore = PreferencesStore(userDefaults: testDefaults)
         let model = NightBrowserModel(store: fixtureStore, preferencesStore: prefsStore, now: now)
         return (model, fixtureStore)
+    }
+
+    /// A pulse-oximeter export can be weeks old, and importing one selects the night it
+    /// was recorded. If the overview window does not reach that far back there is no
+    /// assembled night to select, and the recording becomes permanently unreachable.
+    @Test @MainActor func nightsWellOlderThanTwoWeeksStayReachable() async {
+        let day = Self.testCalendar.date(byAdding: .day, value: -30, to: Self.july25Noon)!
+        let interval = NormalizedSleepInterval(
+            id: "old-1",
+            startDate: Self.testCalendar.date(bySettingHour: 23, minute: 0, second: 0, of: day)!,
+            endDate: Self.testCalendar.date(
+                bySettingHour: 7, minute: 0, second: 0,
+                of: Self.testCalendar.date(byAdding: .day, value: 1, to: day)!
+            )!,
+            stage: .core,
+            sourceName: "Watch",
+            sourceIdentifier: "com.apple.health",
+            deviceModel: nil,
+            bundleIdentifier: nil
+        )
+
+        let model = makeTestModel(now: { Self.july25Noon }, intervals: [interval])
+        await model.loadData()
+
+        let reachable = model.assembledNights.contains {
+            Self.testCalendar.isDate($0.date, inSameDayAs: day)
+        }
+        #expect(reachable)
+
+        model.selectNight(day)
+        #expect(model.selectedAssembledNight != nil)
     }
 
     @Test @MainActor func loadSelectsNewestPopulatedNight() async {

@@ -46,6 +46,20 @@ public final class NightBrowserModel: @unchecked Sendable {
     private let detector = DesaturationDetector()
     private let assembler = NightAssembler()
     private let now: @Sendable () -> Date
+
+    /// How many nights back the overview reaches, counting tonight.
+    ///
+    /// Governs both the HealthKit fetch and the nights assembled from it — they are one
+    /// constant because a fetch narrower than the assembly silently yields empty nights,
+    /// and a fetch wider than it does work nothing reads.
+    ///
+    /// Two weeks was the original figure and it made any older night permanently
+    /// unreachable: navigation walks `assembledNights`, so a date outside it has no index
+    /// and no previous-night step ever arrives at it. Importing a pulse-oximeter export
+    /// selects the night it was recorded, and those are routinely weeks old, which turned
+    /// the gap into a dead end — the import succeeded and the night could not be opened.
+    /// HealthKit imposes no such limit; the query already runs with `HKObjectQueryNoLimit`.
+    public static let overviewNightCount = 90
     private var allFetchedIntervals: [NormalizedSleepInterval] = []
     private var isLoading = false
     private var vitalsTask: Task<(VitalsSession, [DesaturationEvent])?, Never>?
@@ -90,10 +104,13 @@ public final class NightBrowserModel: @unchecked Sendable {
                 return
             }
 
-            // Fetch 21 days of buffered data (14 days before today + 7 days buffer)
+            // The overview span, plus a two-day forward buffer so a night in progress and
+            // any sample recorded slightly ahead of local midnight is still caught.
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: now())
-            let start = calendar.date(byAdding: .day, value: -14, to: today) ?? today
+            let start = calendar.date(
+                byAdding: .day, value: -Self.overviewNightCount, to: today
+            ) ?? today
             let end = calendar.date(byAdding: .day, value: 2, to: today) ?? today
 
             let raw = try await store.fetchSleepSamples(start: start, end: end)
@@ -156,9 +173,9 @@ public final class NightBrowserModel: @unchecked Sendable {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now())
 
-        // Assemble 14 nearby nights (-13 to 0)
+        // Tonight plus the preceding nights of the overview span.
         var newNights: [AssembledNight] = []
-        for offset in (-13)...0 {
+        for offset in (-(Self.overviewNightCount - 1))...0 {
             if let date = calendar.date(byAdding: .day, value: offset, to: today) {
                 let night = assembler.assembleNight(
                     for: date,
