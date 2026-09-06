@@ -411,7 +411,7 @@ struct NightBrowserModelTests {
     }
 }
 
-private actor BlockingSleepStore: HealthKitSleepStoreProtocol {
+actor BlockingSleepStore: HealthKitSleepStoreProtocol {
     private let intervals: [NormalizedSleepInterval]
     private var fetchCount = 0
     private var blocksNextFetch = false

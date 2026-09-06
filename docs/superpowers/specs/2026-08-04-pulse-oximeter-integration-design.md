@@ -318,12 +318,14 @@ No decoded format is persisted.
 carry its span:
 
 ```
-2026-08-03T180248_2026-08-04T040246.csv.z
+1785780168_1785816166.csv.z
 ```
 
-The file name *is* the index. Determining which recordings cover a night requires no
-parsing, no decompression, no sidecar metadata, and no separate index file to keep
-consistent.
+The file name *is* the index. Its two epoch timestamps preserve the absolute span chosen
+at import even if the device later changes timezone. Determining which recordings cover a
+night requires no parsing, no decompression, no sidecar metadata, and no separate index
+file to keep consistent. When the lossless CSV is reopened, its samples are re-anchored to
+the filename's stable start because the CSV's wall-clock text contains no timezone.
 
 `VitalsStore` remains a protocol, so iCloud durability later is a new conformance and
 callers do not change.
@@ -479,8 +481,9 @@ made in a different timezone, and importing across a daylight-saving transition.
 can place a session up to an hour off against HealthKit samples, which are absolute
 instants.
 
-This is an accepted v1 limitation, recorded here rather than defended against. The
-mitigation, if it becomes real, is a per-session timezone override at import.
+The absolute instant chosen at import remains stable afterward. Importing a recording in
+a different timezone and recordings crossing a daylight-saving transition remain v1
+limitations. A future mitigation would be a per-session timezone override at import.
 
 ## Testing
 

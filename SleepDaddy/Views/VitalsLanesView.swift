@@ -1,189 +1,147 @@
 import SwiftUI
 
-/// Rail plus the two envelope lanes, beneath the stage plot and sharing its time axis.
-///
-/// Builds its own `SleepTimelineGeometry` from the same night and viewport as the stage
-/// plot, and reserves the same leading label column, so both stay aligned. Because the
-/// viewport lives in `NightBrowserModel`, pinch and pan on the canvas re-render these
-/// lanes automatically — there is nothing to synchronise.
+/// Fixed headings and a generous event hit row; remaining space belongs to the traces.
+/// Selection and the key never participate in this budget.
+public struct VitalsLanesLayout: Equatable, Sendable {
+    public static let defaultHeadingHeight: CGFloat = 24
+    public static let laneSpacing: CGFloat = 6
+    public static let railHeight: CGFloat = 6
+    public static let eventRowHeight: CGFloat = 44
+    public static let bottomAir: CGFloat = 8
+    public let headingHeight: CGFloat
+    public let spo2Height: CGFloat
+    public let pulseHeight: CGFloat
+
+    public init(totalHeight: CGFloat, headingHeight: CGFloat = defaultHeadingHeight) {
+        self.headingHeight = max(Self.defaultHeadingHeight, headingHeight)
+        let free = max(100, totalHeight - Self.fixedHeight(headingHeight: self.headingHeight))
+        spo2Height = free * 0.56
+        pulseHeight = free * 0.44
+    }
+
+    private static func fixedHeight(headingHeight: CGFloat) -> CGFloat {
+        max(44, headingHeight) + eventRowHeight + 2 * headingHeight
+            + 4 * laneSpacing + bottomAir
+    }
+
+    public static func minimumTotalHeight(headingHeight: CGFloat = defaultHeadingHeight) -> CGFloat {
+        fixedHeight(headingHeight: max(defaultHeadingHeight, headingHeight)) + 100
+    }
+
+    public var headerHeight: CGFloat { max(44, headingHeight) }
+    public var washHeight: CGFloat { 2 * headingHeight + 3 * Self.laneSpacing + spo2Height + pulseHeight }
+    public var laneRowsHeight: CGFloat { Self.eventRowHeight + Self.laneSpacing + washHeight }
+    public var totalHeight: CGFloat { headerHeight + laneRowsHeight + Self.bottomAir }
+}
+
+/// Full-width traces with a continuous stage wash and headings above each measure.
 public struct VitalsLanesView: View {
     let session: VitalsSession
     let events: [DesaturationEvent]
     let night: AssembledNight
     let viewportStart: Date
     let viewportEnd: Date
-
-    @Environment(\.colorScheme) private var colorScheme
-
-    /// Matches `SleepTimelineCanvas`'s stage-label column so the x axes line up.
-    private static let labelWidth: CGFloat = 68
-    private static let spo2LaneHeight: CGFloat = 56
-    private static let pulseLaneHeight: CGFloat = 44
-    private static let laneSpacing: CGFloat = 6
-
-    /// Both envelope lanes and the gap between them, so the wash behind them is continuous.
-    private static let washHeight: CGFloat = spo2LaneHeight + laneSpacing + pulseLaneHeight
+    let layout: VitalsLanesLayout
+    let selectedEvent: DesaturationEvent?
+    let showsKeyButton: Bool
+    let onShowKey: () -> Void
+    let onSelectEvent: (DesaturationEvent) -> Void
 
     public init(
-        session: VitalsSession,
-        events: [DesaturationEvent],
-        night: AssembledNight,
-        viewportStart: Date,
-        viewportEnd: Date
+        session: VitalsSession, events: [DesaturationEvent], night: AssembledNight,
+        viewportStart: Date, viewportEnd: Date,
+        layout: VitalsLanesLayout = VitalsLanesLayout(totalHeight: VitalsLanesLayout.minimumTotalHeight()),
+        selectedEvent: DesaturationEvent? = nil, showsKeyButton: Bool = false,
+        onShowKey: @escaping () -> Void = {},
+        onSelectEvent: @escaping (DesaturationEvent) -> Void = { _ in }
     ) {
         self.session = session
         self.events = events
         self.night = night
         self.viewportStart = viewportStart
         self.viewportEnd = viewportEnd
+        self.layout = layout
+        self.selectedEvent = selectedEvent
+        self.showsKeyButton = showsKeyButton
+        self.onShowKey = onShowKey
+        self.onSelectEvent = onSelectEvent
     }
 
     public var body: some View {
         GeometryReader { proxy in
-            let plotWidth = max(1, proxy.size.width - Self.labelWidth)
             let viewport = TimelineViewport(normalizing: viewportStart, end: viewportEnd)
             let geometry = SleepTimelineGeometry(
-                totalStart: night.timelineStart,
-                totalEnd: night.timelineEnd,
-                viewport: viewport,
-                canvasWidth: plotWidth,
-                canvasHeight: proxy.size.height
+                totalStart: night.timelineStart, totalEnd: night.timelineEnd,
+                viewport: viewport, canvasWidth: proxy.size.width, canvasHeight: proxy.size.height
             )
             let envelope = VitalsEnvelopeBuilder().build(
-                session: session,
-                viewport: viewport,
-                pixelWidth: Int(plotWidth.rounded())
+                session: session, viewport: viewport,
+                pixelWidth: max(1, Int((proxy.size.width - 2 * SleepTimelineGeometry.horizontalPlotInset).rounded()))
             )
-
-            VStack(alignment: .leading, spacing: Self.laneSpacing) {
-                labelled("EVENTS") {
-                    DesaturationRailView(events: events, geometry: geometry)
-                }
-                // One wash spanning both lanes, so a transition rule runs unbroken through
-                // SpO₂ and pulse together and a dip can be lined up against it by eye.
-                ZStack(alignment: .topLeading) {
-                    StageBackgroundLane(
-                        intervals: night.displayLaneIntervals, geometry: geometry
-                    )
-                    .frame(width: plotWidth, height: Self.washHeight)
-                    .padding(.leading, Self.labelWidth)
-                    .allowsHitTesting(false)
-
-                    VStack(alignment: .leading, spacing: Self.laneSpacing) {
-                        labelled("SpO₂") {
-                            VitalsEnvelopeLane(
-                                envelope: envelope, measure: .spo2, laneHeight: Self.spo2LaneHeight
-                            )
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Events").font(.caption).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    if showsKeyButton {
+                        Button(action: onShowKey) {
+                            Image(systemName: "info.circle")
+                                .font(.body)
+                                .frame(minWidth: 44, minHeight: 44)
                         }
-                        labelled("PULSE") {
-                            VitalsEnvelopeLane(
-                                envelope: envelope, measure: .pulse, laneHeight: Self.pulseLaneHeight
-                            )
-                        }
+                        .accessibilityLabel("Chart key")
                     }
                 }
-                labelled("STAGE") {
-                    StageRibbonView(
-                        intervals: night.displayLaneIntervals, geometry: geometry
-                    )
-                }
-                stageLegend
-                legend
-            }
-        }
-        .frame(height: Self.totalHeight)
-    }
+                .padding(.horizontal, 10)
+                .frame(height: layout.headerHeight)
 
-    /// The ribbon, two legend rows, and the gaps around them, on top of the lanes.
-    static var totalHeight: CGFloat {
-        DesaturationRailView.railHeight + spo2LaneHeight + pulseLaneHeight
-            + StageRibbonView.ribbonHeight + 92
-    }
-
-    /// Aligns a row with the lane content without repeating the label above it.
-    private func indented<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content().padding(.leading, Self.labelWidth)
-    }
-
-    private func labelled<Content: View>(
-        _ title: String, @ViewBuilder content: () -> Content
-    ) -> some View {
-        HStack(alignment: .center, spacing: 0) {
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .frame(width: Self.labelWidth, alignment: .leading)
-            content()
-        }
-    }
-
-    /// Names the stage wash behind the lanes.
-    ///
-    /// Carries the label column like the lanes above it, so it reads as a row of this
-    /// chart rather than as a second key for the stage plot. Without it the wash could be
-    /// seen but not identified: at wash weight core, deep and REM are close enough that
-    /// telling them apart meant counting bands against the plot above.
-    ///
-    /// Chips are the ribbon's own full-strength colours, and the row sits directly under
-    /// the labelled ribbon it explains rather than carrying a second STAGE label. The
-    /// wash needs no chips of its own: it has two tones, and the awake tone is a pale
-    /// version of the awake chip immediately beside it.
-    private var stageLegend: some View {
-        let stages = StageBackgroundSpans.legendStages(in: night.displayLaneIntervals)
-        return Group {
-            if stages.isEmpty {
-                EmptyView()
-            } else {
-                indented {
-                    HStack(spacing: 10) {
-                        ForEach(stages, id: \.self) { stage in
-                            HStack(spacing: 4) {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(stage.themeColor)
-                                    .frame(width: 14, height: 9)
-                                Text(stage.displayName)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.8)
+                DesaturationRailView(events: events, geometry: geometry)
+                    .frame(height: VitalsLanesLayout.eventRowHeight)
+                    .accessibilityActions {
+                        if showsKeyButton {
+                            ForEach(events.filter(\.reachesRailThreshold)) { event in
+                                Button("Inspect event at \(event.startDate.formatted(date: .omitted, time: .shortened))") {
+                                    onSelectEvent(event)
+                                }
                             }
                         }
-                        Spacer(minLength: 0)
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel(
-                        "Stage ribbon: "
-                            + stages.map(\.displayName).joined(separator: ", ")
-                    )
+                ZStack(alignment: .topLeading) {
+                    StageBackgroundLane(intervals: night.displayLaneIntervals, geometry: geometry)
+                        .allowsHitTesting(false)
+                    VStack(alignment: .leading, spacing: VitalsLanesLayout.laneSpacing) {
+                        heading("SpO₂")
+                        VitalsEnvelopeLane(envelope: envelope, measure: .spo2, laneHeight: layout.spo2Height)
+                            .padding(.horizontal, SleepTimelineGeometry.horizontalPlotInset)
+                        heading("Pulse")
+                        VitalsEnvelopeLane(envelope: envelope, measure: .pulse, laneHeight: layout.pulseHeight)
+                            .padding(.horizontal, SleepTimelineGeometry.horizontalPlotInset)
+                    }
+                    if let selectedEvent,
+                       selectedEvent.endDate >= viewport.start,
+                       selectedEvent.startDate <= viewport.end {
+                        let x = geometry.xPosition(for: selectedEvent.startDate.addingTimeInterval(selectedEvent.duration / 2))
+                        Rectangle()
+                            .fill(Color.primary.opacity(0.65))
+                            .frame(width: 2)
+                            .offset(x: x)
+                            .accessibilityHidden(true)
+                            .allowsHitTesting(false)
+                    }
                 }
+                .frame(height: layout.washHeight)
+                .clipped()
+                .padding(.top, VitalsLanesLayout.laneSpacing)
             }
         }
+        .frame(height: layout.totalHeight)
     }
 
-    /// Numeric labels, never verdicts. The threshold is a display choice; a word like
-    /// "Critical" would be an interpretation, which the app does not make.
-    /// Labelled like the stage legend above it. Two unlabelled chip rows stacked read as
-    /// one wrapped row, and the series blue here is a near match for the core-stage chip
-    /// directly above, so the label is what keeps the two keys apart.
-    private var legend: some View {
-        labelled("SpO₂") {
-            HStack(spacing: 12) {
-                ForEach(VitalsColorZone.allCases, id: \.self) { zone in
-                    HStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(zone.color)
-                            .frame(width: 9, height: 9)
-                        Text(zone.legendLabel)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .accessibilityElement(children: .combine)
-        }
+    private func heading(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 10)
+            .frame(height: layout.headingHeight, alignment: .leading)
     }
 }
 
@@ -236,7 +194,8 @@ public struct VitalsLanesView: View {
         events: DesaturationDetector().events(in: session),
         night: night,
         viewportStart: session.startDate,
-        viewportEnd: session.endDate
+        viewportEnd: session.endDate,
+        layout: VitalsLanesLayout(totalHeight: 320)
     )
     .padding()
 }

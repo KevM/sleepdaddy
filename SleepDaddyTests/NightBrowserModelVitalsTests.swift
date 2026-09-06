@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 final class InMemoryVitalsStore: VitalsStore, @unchecked Sendable {
     var sessions: [VitalsSession] = []
     var loadDelayNanoseconds: UInt64 = 0
+    var loadDelaysByCall: [UInt64] = []
 
     func importRecording(_ data: Data, originalName: String) throws -> VitalsRecordingDescriptor {
         let session = try CheckmeCSVParser().parse(data, fileName: originalName)
@@ -35,11 +36,15 @@ final class InMemoryVitalsStore: VitalsStore, @unchecked Sendable {
     private(set) var loadSessionCallCount = 0
 
     func loadSession(for descriptor: VitalsRecordingDescriptor) throws -> VitalsSession {
+        let callIndex = loadSessionCallCount
         loadSessionCallCount += 1
-        if loadDelayNanoseconds > 0 {
-            Thread.sleep(forTimeInterval: Double(loadDelayNanoseconds) / 1_000_000_000.0)
+        let delay = loadDelaysByCall.indices.contains(callIndex)
+            ? loadDelaysByCall[callIndex] : loadDelayNanoseconds
+        let result = sessions.first { $0.startDate == descriptor.start }!
+        if delay > 0 {
+            Thread.sleep(forTimeInterval: Double(delay) / 1_000_000_000.0)
         }
-        return sessions.first { $0.startDate == descriptor.start }!
+        return result
     }
 
     func originalCSV(for descriptor: VitalsRecordingDescriptor) throws -> Data { Data() }
@@ -189,6 +194,26 @@ struct NightBrowserModelVitalsTests {
         #expect(!leaked, "night A's recording landed on night B after the selection moved")
     }
 
+    @Test func supersededSameNightLoadCannotClearANewerResult() async throws {
+        let store = InMemoryVitalsStore()
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(), vitalsStore: store, now: { Date() }
+        )
+        await model.loadData()
+        let night = try #require(model.selectedAssembledNight)
+        store.sessions = [session(start: night.detectedStart, count: 1_000)]
+        store.loadDelaysByCall = [200_000_000, 0]
+
+        async let older: Void = model.loadVitalsForSelectedNight()
+        try await waitUntil { store.loadSessionCallCount == 1 }
+        await model.loadVitalsForSelectedNight()
+        #expect(model.selectedVitalsSession != nil)
+        await older
+
+        #expect(model.selectedVitalsSession != nil)
+        #expect(model.selectedAssembledNight?.vitalsExtent != nil)
+    }
+
     @Test func importVitalsAutoSelectsTheNightOfTheRecording() async throws {
         let store = InMemoryVitalsStore()
         let model = NightBrowserModel(
@@ -213,6 +238,102 @@ struct NightBrowserModelVitalsTests {
         try await model.importVitals(from: tempURL)
 
         #expect(Calendar.current.isDate(model.selectedDate, inSameDayAs: prevNight.date))
+        #expect(model.selectedVitalsSession != nil)
+    }
+
+    @Test func importOlderThanOverviewLoadsAndSelectsItsNight() async throws {
+        let store = InMemoryVitalsStore()
+        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 8, day: 3))!
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(), vitalsStore: store, now: { now }
+        )
+        await model.loadData()
+
+        let text = """
+        Time,Oxygen Level,Pulse Rate,Motion
+        22:00:00 Jan 03 2026,96,70,0
+        22:00:02 Jan 03 2026,95,69,0
+        """
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("old-import-\(UUID().uuidString).csv")
+        try Data(text.utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try await model.importVitals(from: url)
+
+        #expect(Calendar.current.isDate(model.selectedDate, inSameDayAs: store.sessions[0].startDate))
+        #expect(model.selectedAssembledNight != nil)
+        #expect(model.selectedVitalsSession != nil)
+    }
+
+    @Test func importWaitsForAnActiveInitialLoadThenSelectsTheImportedNight() async throws {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 8, day: 3))!
+        let oldNight = calendar.date(from: DateComponents(year: 2026, month: 1, day: 3))!
+        let sleepStore = BlockingSleepStore(
+            intervals: FixtureSleepStore.createFixtureNight(forDay: oldNight)
+        )
+        let vitalsStore = InMemoryVitalsStore()
+        let model = NightBrowserModel(
+            store: sleepStore, vitalsStore: vitalsStore, now: { now }
+        )
+
+        await sleepStore.blockNextFetch()
+        let initialLoad = Task { await model.loadData() }
+        #expect(await sleepStore.waitForFetchCount(1))
+
+        let text = """
+        Time,Oxygen Level,Pulse Rate,Motion
+        23:30:00 Jan 03 2026,96,70,0
+        23:30:02 Jan 03 2026,95,69,0
+        """
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("concurrent-import-\(UUID().uuidString).csv")
+        try Data(text.utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let importTask = Task { try await model.importVitals(from: url) }
+        try await waitUntil { !vitalsStore.sessions.isEmpty }
+        await sleepStore.resumeFetch()
+        await initialLoad.value
+        try await importTask.value
+
+        #expect(calendar.isDate(model.selectedDate, inSameDayAs: oldNight))
+        #expect(model.selectedAssembledNight?.hasSleepData == true)
+        #expect(model.selectedVitalsSession != nil)
+    }
+
+    @Test func afterMidnightImportSelectsTheNightWhoseSleepItOverlaps() async throws {
+        let calendar = Calendar.current
+        let now = calendar.date(from: DateComponents(year: 2026, month: 8, day: 3))!
+        let vitalsStore = InMemoryVitalsStore()
+        let model = NightBrowserModel(
+            store: FixtureSleepStore(), vitalsStore: vitalsStore, now: { now }
+        )
+        await model.loadData()
+
+        let priorNight = try #require(model.selectedAssembledNight)
+        let twoAM = calendar.date(
+            bySettingHour: 2, minute: 0, second: 0,
+            of: calendar.date(byAdding: .day, value: 1, to: priorNight.date)!
+        )!
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss MMM dd yyyy"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        let text = """
+        Time,Oxygen Level,Pulse Rate,Motion
+        \(formatter.string(from: twoAM)),96,70,0
+        \(formatter.string(from: twoAM.addingTimeInterval(2))),95,69,0
+        """
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("after-midnight-import-\(UUID().uuidString).csv")
+        try Data(text.utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try await model.importVitals(from: url)
+
+        #expect(calendar.isDate(model.selectedDate, inSameDayAs: priorNight.date))
         #expect(model.selectedVitalsSession != nil)
     }
 

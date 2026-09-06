@@ -37,28 +37,23 @@ public struct StageBackgroundSpans: Equatable, Sendable {
     /// Matches the tolerance `stepSegments` uses to decide two intervals touch.
     private static let abuttingTolerance: TimeInterval = 0.001
 
-    /// The wash carries two tones rather than one per stage.
-    ///
-    /// Four pale hues on white cannot be told apart. Measured as CIE ΔE on the blended
-    /// colours, REM against core came to 2.6 — below the level at which a difference
-    /// registers at all — and raising alpha does not rescue it: even at 0.80, where the
-    /// wash stops being a background, the palette tops out near 12. Only awake against
-    /// asleep clears a usable margin, because coral against blue is a hue difference
-    /// rather than a lightness one.
-    ///
-    /// So the wash keeps the distinction that survives, and exact stage identity moved to
-    /// the ribbon, where full saturation is available because nothing is drawn over it.
-    public enum WashTone: Sendable, Equatable { case awake, asleep }
-
-    public static func washTone(for stage: SleepStage) -> WashTone {
-        stage == .awake ? .awake : .asleep
+    /// A redundant cue for stage identity when the shared stage colors are used as pale
+    /// backgrounds. In particular, REM and Core converge visually at low opacity.
+    public enum Pattern: Hashable, Sendable {
+        case horizontal, diagonal, solid, dots, crosshatch, none
     }
 
-    /// How heavily the wash is laid down.
-    ///
-    /// One value per scheme: with only two tones there is no inter-stage separation left
-    /// to buy with alpha, so this is set purely by how far the ground may go before it
-    /// competes with the envelope drawn over it.
+    public static func pattern(for stage: SleepStage) -> Pattern {
+        switch stage {
+        case .awake: return .horizontal
+        case .rem: return .diagonal
+        case .core: return .solid
+        case .deep: return .dots
+        case .asleepUnspecified: return .crosshatch
+        case .inBed: return .none
+        }
+    }
+
     public static func washOpacity(isDark: Bool) -> Double {
         isDark ? 0.26 : 0.30
     }

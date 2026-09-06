@@ -49,6 +49,12 @@ public struct VitalsSession: Identifiable, Hashable, Sendable {
         return startDate.addingTimeInterval(Double(sampleCount - 1) * Self.sampleInterval)
     }
 
+    /// Exclusive end of the final sample's slot. Event durations use this boundary so a
+    /// terminal one-sample event still spans one complete sample interval.
+    public var exclusiveEndDate: Date {
+        startDate.addingTimeInterval(Double(sampleCount) * Self.sampleInterval)
+    }
+
     public var dateInterval: DateInterval {
         DateInterval(start: startDate, end: endDate)
     }

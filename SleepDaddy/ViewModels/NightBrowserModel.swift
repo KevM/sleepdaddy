@@ -23,8 +23,10 @@ public final class NightBrowserModel: @unchecked Sendable {
             selectedVitalsSession = nil
             selectedDesaturationEvents = []
             resetViewportToSelectedNight()
-            Task { @MainActor in
-                await loadVitalsForSelectedNight()
+            if !suppressesAutomaticVitalsLoad {
+                Task { @MainActor in
+                    await loadVitalsForSelectedNight()
+                }
             }
         }
     }
@@ -63,6 +65,8 @@ public final class NightBrowserModel: @unchecked Sendable {
     private var allFetchedIntervals: [NormalizedSleepInterval] = []
     private var isLoading = false
     private var vitalsTask: Task<(VitalsSession, [DesaturationEvent])?, Never>?
+    private var vitalsLoadGeneration = 0
+    private var suppressesAutomaticVitalsLoad = false
 
     public init(
         store: HealthKitSleepStoreProtocol = HealthKitSleepStore(),
@@ -108,9 +112,16 @@ public final class NightBrowserModel: @unchecked Sendable {
             // any sample recorded slightly ahead of local midnight is still caught.
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: now())
-            let start = calendar.date(
+            let recentStart = calendar.date(
                 byAdding: .day, value: -Self.overviewNightCount, to: today
             ) ?? today
+            let storedDescriptors = (try? vitalsStore?.allDescriptors()) ?? []
+            let oldestVitalsStart = storedDescriptors.map(\.start).min().map { date in
+                let recordingDay = calendar.startOfDay(for: date)
+                return calendar.date(byAdding: .day, value: -1, to: recordingDay)
+                    ?? recordingDay
+            }
+            let start = min(recentStart, oldestVitalsStart ?? recentStart)
             let end = calendar.date(byAdding: .day, value: 2, to: today) ?? today
 
             let raw = try await store.fetchSleepSamples(start: start, end: end)
@@ -183,6 +194,24 @@ public final class NightBrowserModel: @unchecked Sendable {
                     preferences: preferences
                 )
                 newNights.append(night)
+            }
+        }
+        // Imported recordings can predate the rolling overview. Include those specific
+        // nights without creating hundreds of empty rows between them and today.
+        if let descriptors = try? vitalsStore?.allDescriptors() {
+            let candidateDates = Set(descriptors.flatMap { descriptor in
+                let recordingDay = calendar.startOfDay(for: descriptor.start)
+                let previousDay = calendar.date(byAdding: .day, value: -1, to: recordingDay)
+                    ?? recordingDay
+                return [previousDay, recordingDay]
+            })
+            for date in candidateDates
+            where !newNights.contains(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
+                newNights.append(assembler.assembleNight(
+                    for: date,
+                    allNormalizedIntervals: allFetchedIntervals,
+                    preferences: preferences
+                ))
             }
         }
         self.assembledNights = newNights.sorted { $0.date < $1.date }
@@ -292,6 +321,8 @@ public final class NightBrowserModel: @unchecked Sendable {
     @MainActor
     public func loadVitalsForSelectedNight() async {
         let targetDate = selectedDate
+        vitalsLoadGeneration &+= 1
+        let generation = vitalsLoadGeneration
         vitalsTask?.cancel()
 
         guard let vitalsStore, let night = selectedAssembledNight else {
@@ -327,7 +358,10 @@ public final class NightBrowserModel: @unchecked Sendable {
 
         // Cancellation cannot interrupt the store's synchronous read, so a superseded
         // load still arrives here. The selection is what decides whether it may land.
-        guard !Task.isCancelled, selectedDate == targetDate else { return }
+        guard !Task.isCancelled,
+              vitalsLoadGeneration == generation,
+              selectedDate == targetDate
+        else { return }
 
         guard let (session, events) = loaded else {
             selectedVitalsSession = nil
@@ -355,7 +389,35 @@ public final class NightBrowserModel: @unchecked Sendable {
 
         let data = try Data(contentsOf: url)
         let descriptor = try vitalsStore.importRecording(data, originalName: url.lastPathComponent)
-        selectNight(descriptor.start)
+        // Rebuild the candidate dates and refetch sleep records before choosing a night.
+        // A recording after midnight usually belongs to the preceding calendar day's
+        // sleep, so the actual sleep overlap is the source of truth.
+        // An import changes the fetch range, so unlike overlapping scene refreshes it
+        // must run once more after any older query completes.
+        while isLoading {
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        await loadData(preservingNavigationState: true)
+        let importedInterval = descriptor.dateInterval
+        suppressesAutomaticVitalsLoad = true
+        if let matchingNight = assembledNights.max(by: {
+            overlapDuration(of: $0, with: importedInterval)
+                < overlapDuration(of: $1, with: importedInterval)
+        }), overlapDuration(of: matchingNight, with: importedInterval) > 0 {
+            selectNight(matchingNight.date)
+        } else {
+            selectNight(descriptor.start)
+        }
+        suppressesAutomaticVitalsLoad = false
         await loadVitalsForSelectedNight()
+    }
+
+    private func overlapDuration(
+        of night: AssembledNight,
+        with interval: DateInterval
+    ) -> TimeInterval {
+        let start = max(night.detectedStart, interval.start)
+        let end = min(night.detectedEnd, interval.end)
+        return max(0, end.timeIntervalSince(start))
     }
 }

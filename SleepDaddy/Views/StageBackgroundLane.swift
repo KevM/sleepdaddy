@@ -3,16 +3,9 @@ import SwiftUI
 /// A flat stage-coloured wash drawn behind the vitals lanes, with a rule at each stage
 /// change.
 ///
-/// Uses `SleepStage.themeColor` rather than a palette of its own so the wash reads against
-/// the stage plot directly above it, which is what lets it work without a second legend.
-///
-/// The wash shares hues with the SpO₂ zone colours — three of the six stages are in the
-/// blue family, as is the normal SpO₂ band. They stay distinguishable through weight
-/// rather than hue: the wash is flat and nearly transparent, the envelope solid and
-/// saturated. Foreground and background at those weights are not confusable, which a
-/// neutral lightness ramp would have bought at the cost of telling six stages apart.
-///
-/// Gaps are left unpainted on purpose: no wash means no stage data, not a stage of zero.
+/// Uses `SleepStage.themeColor`, the app-wide stage palette. A subtle pattern provides a
+/// second cue because REM and Core become similar when their shared colors are faded into
+/// a background. Gaps remain unpainted and do not imply unknown-stage sleep.
 public struct StageBackgroundLane: View {
     let intervals: [NormalizedSleepInterval]
     let geometry: SleepTimelineGeometry
@@ -24,15 +17,10 @@ public struct StageBackgroundLane: View {
         self.geometry = geometry
     }
 
-    /// The colour a stage band is washed in — one of two, per `washTone`. Awake keeps its
-    /// coral; every sleeping stage shares core's blue, because the wash cannot carry more
-    /// than that distinction and pretending otherwise showed four bands that were not
-    /// actually distinguishable.
+    /// The same semantic color used by the timeline, inspectors, exports, and app icon.
     public static func washColor(for stage: SleepStage, isDark: Bool) -> Color {
-        let base: Color = StageBackgroundSpans.washTone(for: stage) == .awake
-            ? SleepStage.awake.themeColor
-            : SleepStage.core.themeColor
-        return base.opacity(StageBackgroundSpans.washOpacity(isDark: isDark))
+        guard stage != .inBed else { return .clear }
+        return stage.themeColor.opacity(StageBackgroundSpans.washOpacity(isDark: isDark))
     }
 
     public var body: some View {
@@ -41,9 +29,16 @@ public struct StageBackgroundLane: View {
 
             let isDark = colorScheme == .dark
             for span in layout.spans {
+                let rect = CGRect(x: span.startX, y: 0, width: span.width, height: size.height)
                 context.fill(
-                    Path(CGRect(x: span.startX, y: 0, width: span.width, height: size.height)),
+                    Path(rect),
                     with: .color(Self.washColor(for: span.stage, isDark: isDark))
+                )
+                Self.drawPattern(
+                    StageBackgroundSpans.pattern(for: span.stage),
+                    in: rect,
+                    context: &context,
+                    color: .primary.opacity(0.10)
                 )
             }
 
@@ -54,8 +49,53 @@ public struct StageBackgroundLane: View {
                 context.stroke(rule, with: .color(.primary.opacity(0.25)), lineWidth: 1)
             }
         }
-        // The same stages are already fully described by the stage plot above; repeating
-        // them here would only lengthen the VoiceOver pass over the vitals.
+        // The stages are already fully described by the canvas's chronological interval
+        // list; repeating them here would only lengthen the VoiceOver pass over the night.
         .accessibilityHidden(true)
+    }
+
+    static func drawPattern(
+        _ pattern: StageBackgroundSpans.Pattern,
+        in rect: CGRect,
+        context: inout GraphicsContext,
+        color: Color,
+        spacing: CGFloat = 18
+    ) {
+        context.drawLayer { layer in
+            layer.clip(to: Path(rect))
+            switch pattern {
+            case .solid, .none:
+                break
+            case .horizontal:
+                for y in stride(from: rect.minY + spacing / 2, through: rect.maxY, by: spacing) {
+                    var path = Path()
+                    path.move(to: CGPoint(x: rect.minX, y: y))
+                    path.addLine(to: CGPoint(x: rect.maxX, y: y))
+                    layer.stroke(path, with: .color(color), lineWidth: 1)
+                }
+            case .diagonal, .crosshatch:
+                for offset in stride(from: -rect.height, through: rect.width, by: spacing) {
+                    var path = Path()
+                    path.move(to: CGPoint(x: rect.minX + offset, y: rect.maxY))
+                    path.addLine(to: CGPoint(x: rect.minX + offset + rect.height, y: rect.minY))
+                    layer.stroke(path, with: .color(color), lineWidth: 1)
+                    if pattern == .crosshatch {
+                        var reverse = Path()
+                        reverse.move(to: CGPoint(x: rect.minX + offset, y: rect.minY))
+                        reverse.addLine(to: CGPoint(x: rect.minX + offset + rect.height, y: rect.maxY))
+                        layer.stroke(reverse, with: .color(color), lineWidth: 1)
+                    }
+                }
+            case .dots:
+                for x in stride(from: rect.minX + spacing / 2, through: rect.maxX, by: spacing) {
+                    for y in stride(from: rect.minY + spacing / 2, through: rect.maxY, by: spacing) {
+                        layer.fill(
+                            Path(ellipseIn: CGRect(x: x - 1, y: y - 1, width: 2, height: 2)),
+                            with: .color(color)
+                        )
+                    }
+                }
+            }
+        }
     }
 }

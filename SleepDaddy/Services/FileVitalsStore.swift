@@ -81,7 +81,18 @@ public struct FileVitalsStore: VitalsStore {
 
     public func loadSession(for descriptor: VitalsRecordingDescriptor) throws -> VitalsSession {
         let csv = try originalCSV(for: descriptor)
-        return try parser.parse(csv, fileName: descriptor.url.lastPathComponent)
+        let parsed = try parser.parse(csv, fileName: descriptor.url.lastPathComponent)
+        // The CSV carries local wall-clock text without a timezone. The descriptor's
+        // epoch-based filename preserves the absolute start chosen at import, so reopening
+        // after travel must re-anchor the parsed samples to that stable instant.
+        return VitalsSession(
+            id: parsed.id,
+            startDate: descriptor.start,
+            spo2: parsed.spo2,
+            pulse: parsed.pulse,
+            motion: parsed.motion,
+            sourceFileNames: parsed.sourceFileNames
+        )
     }
 
     public func originalCSV(for descriptor: VitalsRecordingDescriptor) throws -> Data {
@@ -91,15 +102,17 @@ public struct FileVitalsStore: VitalsStore {
 
     // MARK: - File naming
 
-    /// `20260803T180248` — no separators that a file system would object to.
+    /// Epoch seconds are timezone-independent and remain filename-safe.
     private static func stamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyyMMdd'T'HHmmss"
-        return formatter.string(from: date)
+        String(Int64(date.timeIntervalSince1970.rounded()))
     }
 
     private static func date(fromStamp stamp: String) -> Date? {
+        if let seconds = TimeInterval(stamp) {
+            return Date(timeIntervalSince1970: seconds)
+        }
+        // Compatibility for recordings imported by development builds that used a local
+        // wall-clock filename. New imports never take this path.
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd'T'HHmmss"

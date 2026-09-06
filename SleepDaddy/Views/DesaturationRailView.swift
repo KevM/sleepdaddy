@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// A thin rail marking desaturation events, drawn directly beneath the stage plot so
-/// clusters register before either chart is read.
+/// A thin rail marking desaturation events, drawn above the envelopes so clusters register
+/// before the readings themselves are read.
 public struct DesaturationRailView: View {
     let events: [DesaturationEvent]
     let geometry: SleepTimelineGeometry
 
-    public static let railHeight: CGFloat = 6
+    public static let railHeight: CGFloat = VitalsLanesLayout.railHeight
 
     public init(events: [DesaturationEvent], geometry: SleepTimelineGeometry) {
         self.events = events

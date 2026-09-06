@@ -95,4 +95,13 @@ struct DesaturationDetectorTests {
         #expect(rail.count == 1)
         #expect(rail[0].nadir == 86)
     }
+
+    @Test func terminalEventIncludesTheFinalSamplesWholeSlot() throws {
+        var values = [UInt8](repeating: 96, count: 60)
+        values.append(82)
+        let event = try #require(DesaturationDetector().events(in: session(values)).first)
+
+        #expect(event.duration == VitalsSession.sampleInterval)
+        #expect(event.endDate == epoch.addingTimeInterval(61 * VitalsSession.sampleInterval))
+    }
 }

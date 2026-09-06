@@ -10,10 +10,10 @@ struct FileVitalsStoreTests {
     }
 
     /// Each test gets its own directory so runs cannot contaminate each other.
-    private func makeStore() throws -> (FileVitalsStore, URL) {
+    private func makeStore(calendar: Calendar? = nil) throws -> (FileVitalsStore, URL) {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("vitals-tests-\(UUID().uuidString)", isDirectory: true)
-        let store = try FileVitalsStore(directory: directory, calendar: calendar)
+        let store = try FileVitalsStore(directory: directory, calendar: calendar ?? self.calendar)
         return (store, directory)
     }
 
@@ -71,6 +71,24 @@ struct FileVitalsStoreTests {
         #expect(recovered.count == 1)
         #expect(recovered[0].start == descriptor.start)
         #expect(recovered[0].end == descriptor.end)
+    }
+
+    @Test func storedSpanAndLoadedSessionDoNotShiftWhenTimezoneChanges() throws {
+        var losAngeles = Calendar(identifier: .gregorian)
+        losAngeles.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        let (importingStore, directory) = try makeStore(calendar: losAngeles)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let imported = try importingStore.importRecording(sampleCSV(rows: 100), originalName: "x.csv")
+
+        var tokyo = Calendar(identifier: .gregorian)
+        tokyo.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+        let reopenedStore = try FileVitalsStore(directory: directory, calendar: tokyo)
+        let reopened = try #require(reopenedStore.allDescriptors().first)
+        let loaded = try reopenedStore.loadSession(for: reopened)
+
+        #expect(reopened.start == imported.start)
+        #expect(reopened.end == imported.end)
+        #expect(loaded.startDate == imported.start)
     }
 
     @Test func reimportingTheSameRecordingIsANoOp() throws {

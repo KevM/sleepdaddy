@@ -36,34 +36,33 @@ public struct SelectedNightDetailView: View {
         }
     }
 
+    /// One chart per night, chosen by what the night has.
+    ///
+    /// With pulse oximetry the vitals are the chart: SpO₂ and pulse over a stage wash, in
+    /// the card the stage plot used to occupy, with the same axis, scrubber and gestures.
+    /// The stepped plot is not drawn alongside them — the stages are already the ground
+    /// under the readings, and stating them twice cost two keys and two sets of chrome for
+    /// a question nobody asked twice.
+    ///
+    /// `vitals` is nil when the night has none, and the card is the classic stage plot,
+    /// precisely what it was before the feature existed.
     private func timelineCanvas(night: AssembledNight) -> some View {
-        VStack(spacing: 8) {
-            SleepTimelineCanvas(
-                night: night,
-                viewportStart: model.viewportStart,
-                viewportEnd: model.viewportEnd,
-                selectedIntervalID: model.selectedInterval?.id,
-                onSelectInterval: { interval in
-                    model.selectedInterval = interval
-                },
-                onUpdateViewport: { newStart, newEnd in
-                    model.updateViewport(start: newStart, end: newEnd)
-                }
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // Absent entirely when the night has no vitals — no placeholder, no empty
-            // chrome. The app looks exactly as it did before the feature existed.
-            if let session = model.selectedVitalsSession {
-                VitalsLanesView(
-                    session: session,
-                    events: model.selectedDesaturationEvents,
-                    night: night,
-                    viewportStart: model.viewportStart,
-                    viewportEnd: model.viewportEnd
-                )
+        SleepTimelineCanvas(
+            night: night,
+            viewportStart: model.viewportStart,
+            viewportEnd: model.viewportEnd,
+            selectedIntervalID: model.selectedInterval?.id,
+            vitals: model.selectedVitalsSession.map {
+                TimelineVitals(session: $0, events: model.selectedDesaturationEvents)
+            },
+            onSelectInterval: { interval in
+                model.selectedInterval = interval
+            },
+            onUpdateViewport: { newStart, newEnd in
+                model.updateViewport(start: newStart, end: newEnd)
             }
-        }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.horizontal, 16)
     }
 

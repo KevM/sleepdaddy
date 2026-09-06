@@ -338,6 +338,45 @@ public struct SleepTimelineGeometry: Sendable {
         return nil
     }
 
+    /// The interval under an x position, ignoring y.
+    ///
+    /// The vitals lanes stack every stage into rows that share one x axis, so unlike the
+    /// stepped plot there is no y coordinate left to discriminate on: time alone picks the
+    /// interval. The second pass exists for the trailing edge only — intervals are
+    /// half-open so that a boundary belongs to the later of two neighbours, which leaves
+    /// the very last instant of the night matching nothing on the first pass.
+    public func interval(
+        atX x: CGFloat,
+        in intervals: [NormalizedSleepInterval]
+    ) -> NormalizedSleepInterval? {
+        let date = date(atX: x)
+        return intervals.first { $0.startDate <= date && date < $0.endDate }
+            ?? intervals.first { $0.startDate <= date && date <= $0.endDate }
+    }
+
+    /// A minimum 44-point target around visible marked events; closest center wins
+    /// when neighboring targets overlap. Offscreen events cannot steal an edge tap.
+    public func event(atX x: CGFloat, in events: [DesaturationEvent]) -> DesaturationEvent? {
+        events.filter {
+            $0.reachesRailThreshold && $0.endDate >= viewport.start && $0.startDate <= viewport.end
+        }.filter {
+            let left = xPosition(for: $0.startDate)
+            let right = xPosition(for: $0.endDate)
+            let padding = max(0, (44 - (right - left)) / 2)
+            return x >= left - padding && x <= right + padding
+        }.min {
+            abs(xPosition(for: $0.startDate.addingTimeInterval($0.duration / 2)) - x)
+                < abs(xPosition(for: $1.startDate.addingTimeInterval($1.duration / 2)) - x)
+        }
+    }
+
+    public func viewport(centeredAt date: Date) -> TimelineViewport {
+        clamped(TimelineViewport(
+            start: date.addingTimeInterval(-viewport.duration / 2),
+            end: date.addingTimeInterval(viewport.duration / 2)
+        ))
+    }
+
     /// Returns normalized x ratio (0.0 ... 1.0) for context navigator
     public func navigatorXRatio(for date: Date) -> CGFloat {
         guard totalDuration > 0 else { return 0 }

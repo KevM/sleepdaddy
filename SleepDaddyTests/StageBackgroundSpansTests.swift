@@ -161,25 +161,13 @@ struct StageBackgroundSpansTests {
         #expect(spans.transitions.isEmpty)
     }
 
-    // MARK: - Wash tone
-
-    /// The wash carries two tones, not one per stage. Four pale hues on white cannot be
-    /// told apart — measured at ΔE 2.6 between REM and core, below the threshold where a
-    /// difference registers at all — so exact stage identity moved to the ribbon and the
-    /// wash keeps only the distinction that survives: awake against asleep.
-    @Test func awakeWashesAsItsOwnTone() {
-        #expect(StageBackgroundSpans.washTone(for: .awake) == .awake)
+    @Test func eachDisplayedStageHasItsOwnRedundantPattern() {
+        let stages: [SleepStage] = [.awake, .rem, .core, .deep, .asleepUnspecified]
+        let patterns = stages.map(StageBackgroundSpans.pattern(for:))
+        #expect(Set(patterns).count == stages.count)
+        #expect(StageBackgroundSpans.pattern(for: .inBed) == .none)
     }
 
-    @Test func everySleepingStageSharesOneWashTone() {
-        for stage in [SleepStage.rem, .core, .deep, .asleepUnspecified] {
-            #expect(StageBackgroundSpans.washTone(for: stage) == .asleep)
-        }
-    }
-
-    // MARK: - Wash opacity
-
-    /// Faint enough to stay behind the envelope, strong enough to be seen at all.
     @Test func theWashIsFaintButVisibleInBothSchemes() {
         for isDark in [true, false] {
             let opacity = StageBackgroundSpans.washOpacity(isDark: isDark)
