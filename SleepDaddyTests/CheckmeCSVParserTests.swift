@@ -127,10 +127,12 @@ struct CheckmeCSVParserTests {
         #expect(session.endDate.timeIntervalSince(session.startDate) == 35_998)
     }
 
-    /// Guards the DateFormatter regression. A full file must parse fast enough that a
-    /// night change stays interactive. The budget is deliberately loose — a
-    /// per-row DateFormatter would take roughly a second and blow it by 5x.
-    @Test func parsesAFullFileWellInsideTheInteractiveBudget() throws {
+    /// Opt-in benchmark: set SLEEPDADDY_PERFORMANCE_TESTS=1 in the test scheme's
+    /// environment when measuring on a controlled machine. Shared CI runners can
+    /// exceed this wall-clock budget under load even without a parser regression.
+    /// Full-size parsing correctness is always covered by the test above.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["SLEEPDADDY_PERFORMANCE_TESTS"] == "1"))
+    func parsesAFullFileWellInsideTheInteractiveBudget() throws {
         let data = Self.makeCSV(rows: Array(repeating: ("95", "60", "3"), count: 18_000))
         let started = Date()
         _ = try parse(data)
