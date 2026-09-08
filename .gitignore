@@ -61,3 +61,7 @@ fastlane/screenshots/
 
 # Vercel CLI local link and pulled env (vercel pull writes here)
 .vercel
+
+# Personal pulse-oximeter exports used for local rendering checks. No test reads
+# them, so they stay out of the repo.
+sample-data/

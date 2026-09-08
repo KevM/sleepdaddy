@@ -1,15 +1,18 @@
 import SwiftUI
 
 public struct SettingsView: View {
+    @Bindable var model: NightBrowserModel
     @Binding var coreStartHour: Int
     @Binding var coreEndHour: Int
     let onDismiss: () -> Void
 
     public init(
+        model: NightBrowserModel,
         coreStartHour: Binding<Int>,
         coreEndHour: Binding<Int>,
         onDismiss: @escaping () -> Void
     ) {
+        self.model = model
         self._coreStartHour = coreStartHour
         self._coreEndHour = coreEndHour
         self.onDismiss = onDismiss
@@ -30,6 +33,13 @@ public struct SettingsView: View {
                             Text(hourString(hour)).tag(hour)
                         }
                     }
+                }
+
+                Section(
+                    header: Text("Pulse Oximeter"),
+                    footer: Text("Import a CSV export from the Checkme O2 Max. Recordings split by the device's 10-hour limit are joined automatically.")
+                ) {
+                    VitalsImportButton(model: model)
                 }
 
                 Section(header: Text("About SleepDaddy")) {

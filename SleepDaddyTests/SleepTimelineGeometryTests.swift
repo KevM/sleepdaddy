@@ -589,6 +589,70 @@ struct SleepTimelineGeometryTests {
         #expect(geometry.clamped(moved) == moved)
     }
 
+    private static func laneHitGeometry() -> (SleepTimelineGeometry, [NormalizedSleepInterval]) {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let end = start.addingTimeInterval(4 * 3600)
+        let stages: [(TimeInterval, TimeInterval, SleepStage)] = [
+            (0, 3_600, .awake),
+            (3_600, 10_800, .core),
+            (10_800, 14_400, .rem),
+        ]
+        let intervals = stages.map { begin, finish, stage in
+            NormalizedSleepInterval(
+                id: "\(stage.rawValue)-\(Int(begin))",
+                startDate: start.addingTimeInterval(begin),
+                endDate: start.addingTimeInterval(finish),
+                stage: stage,
+                sourceName: "Test",
+                sourceIdentifier: "test"
+            )
+        }
+        let geometry = SleepTimelineGeometry(
+            totalStart: start,
+            totalEnd: end,
+            viewport: TimelineViewport(start: start, end: end),
+            canvasWidth: 400,
+            canvasHeight: 240
+        )
+        return (geometry, intervals)
+    }
+
+    @Test func aLaneTapPicksTheIntervalUnderThatTime() {
+        let (geometry, intervals) = Self.laneHitGeometry()
+
+        for interval in intervals {
+            let midpoint = interval.startDate.addingTimeInterval(
+                interval.endDate.timeIntervalSince(interval.startDate) / 2
+            )
+            let hit = geometry.interval(atX: geometry.xPosition(for: midpoint), in: intervals)
+            #expect(hit?.id == interval.id)
+        }
+    }
+
+    /// Intervals are half-open, so a boundary belongs to the later of the two neighbours.
+    @Test func aLaneTapOnABoundaryPicksTheLaterInterval() {
+        let (geometry, intervals) = Self.laneHitGeometry()
+        let boundary = intervals[0].endDate
+
+        let hit = geometry.interval(atX: geometry.xPosition(for: boundary), in: intervals)
+        #expect(hit?.id == intervals[1].id)
+    }
+
+    /// Half-open bounds leave the night's final instant matching nothing, which would make
+    /// the right edge of the lanes dead to the touch.
+    @Test func aLaneTapAtTheTrailingEdgeStillPicksTheLastInterval() {
+        let (geometry, intervals) = Self.laneHitGeometry()
+
+        let hit = geometry.interval(atX: geometry.canvasWidth, in: intervals)
+        #expect(hit?.id == intervals[2].id)
+    }
+
+    @Test func aLaneTapFindsNothingWhenThereIsNothingToFind() {
+        let (geometry, _) = Self.laneHitGeometry()
+
+        #expect(geometry.interval(atX: 200, in: []) == nil)
+    }
+
     @Test func timelineCanvasReservesCombinedRailHeightExactlyOnce() {
         let start = Date(timeIntervalSinceReferenceDate: 0)
         let end = start.addingTimeInterval(12 * 3600)
@@ -604,6 +668,102 @@ struct SleepTimelineGeometryTests {
         #expect(layout.plotHeight == 276)
         #expect(geometry.usablePlotHeight() == 260)
         #expect(layout.plotHeight - geometry.usablePlotHeight() == SleepTimelineGeometry.topPadding)
+    }
+
+    /// The two charts are alternatives. A night with a recording draws no stepped plot at
+    /// all — that is the whole point of the vitals layout — and the height that plot would
+    /// have taken goes to the readings instead of being split between them.
+    @Test func aNightWithVitalsDrawsNoStagePlotAndGivesItsHeightToTheReadings() {
+        let plotOnly = SleepTimelineCanvasVerticalLayout(totalHeight: 480)
+        let vitalsOnly = SleepTimelineCanvasVerticalLayout(totalHeight: 480, hasVitals: true)
+
+        #expect(plotOnly.vitals == nil)
+        #expect(vitalsOnly.plotHeight == 0)
+        #expect(vitalsOnly.vitals?.totalHeight == plotOnly.plotHeight)
+    }
+
+    /// The lanes fill the card rather than keeping the size they had as a band under the
+    /// plot, so importing a CSV does not leave the night drawn in a strip with the rest of
+    /// the card empty.
+    @Test func theVitalsLanesGrowIntoWhateverHeightTheCardHas() {
+        let short = SleepTimelineCanvasVerticalLayout(totalHeight: 350, hasVitals: true)
+        let tall = SleepTimelineCanvasVerticalLayout(totalHeight: 650, hasVitals: true)
+
+        #expect(tall.vitals!.spo2Height > short.vitals!.spo2Height)
+        #expect(tall.vitals!.pulseHeight > short.vitals!.pulseHeight)
+        #expect(tall.vitals!.totalHeight - short.vitals!.totalHeight == 300)
+    }
+
+    /// Below its floor the chart stops shrinking instead of collapsing the envelopes to
+    /// nothing; the card scrolls or clips rather than drawing unreadable lanes.
+    @Test func theVitalsLanesStopShrinkingAtTheirFloor() {
+        let squeezed = VitalsLanesLayout(totalHeight: 40)
+        let floor = VitalsLanesLayout(totalHeight: VitalsLanesLayout.minimumTotalHeight())
+
+        #expect(squeezed == floor)
+        #expect(squeezed.totalHeight == VitalsLanesLayout.minimumTotalHeight())
+    }
+
+    @Test func largerHeadingsKeepPlotsUsableWithoutTakingHorizontalSpace() {
+        let regular = VitalsLanesLayout(totalHeight: 480)
+        let large = VitalsLanesLayout(totalHeight: 480, headingHeight: 60)
+        #expect(large.totalHeight == regular.totalHeight)
+        #expect(large.spo2Height < regular.spo2Height)
+        #expect(large.spo2Height >= 56)
+        #expect(large.pulseHeight >= 44)
+    }
+
+    @Test func eventTapsHaveForgivingTargetsButIgnoreUnmarkedAndOffscreenEvents() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start, totalEnd: start.addingTimeInterval(7200),
+            viewport: TimelineViewport(start: start, end: start.addingTimeInterval(3600)),
+            canvasWidth: 400, canvasHeight: 480
+        )
+        let marked = DesaturationEvent(startDate: start.addingTimeInterval(1800),
+            endDate: start.addingTimeInterval(1802), nadir: 82, baseline: 96)
+        let unmarked = DesaturationEvent(startDate: start.addingTimeInterval(2000),
+            endDate: start.addingTimeInterval(2002), nadir: 92, baseline: 96)
+        let offscreen = DesaturationEvent(startDate: start.addingTimeInterval(3601),
+            endDate: start.addingTimeInterval(3603), nadir: 80, baseline: 96)
+        #expect(geometry.event(atX: geometry.xPosition(for: marked.startDate) - 20,
+            in: [unmarked, marked, offscreen]) == marked)
+        #expect(geometry.event(atX: 10, in: [marked]) == nil)
+        #expect(geometry.event(atX: 399, in: [offscreen]) == nil)
+        #expect(geometry.event(atX: geometry.xPosition(for: unmarked.startDate),
+            in: [unmarked]) == nil)
+    }
+
+    @Test func eventNavigationPreservesZoomAndClampsAtBothNightEdges() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let geometry = SleepTimelineGeometry(
+            totalStart: start, totalEnd: start.addingTimeInterval(7200),
+            viewport: TimelineViewport(start: start, end: start.addingTimeInterval(1800)),
+            canvasWidth: 400, canvasHeight: 480
+        )
+        for (target, expectedStart) in [(60.0, 0.0), (3600.0, 2700.0), (7140.0, 5400.0)] {
+            let result = geometry.viewport(centeredAt: start.addingTimeInterval(target))
+            #expect(result.duration == 1800)
+            #expect(result.start == start.addingTimeInterval(expectedStart))
+        }
+    }
+
+    @Test func aNightWithoutVitalsReservesNoBandAndNoExtraGestureHeight() {
+        let layout = SleepTimelineCanvasVerticalLayout(totalHeight: 320)
+
+        #expect(layout.vitals == nil)
+        #expect(layout.gestureHeight == layout.plotHeight)
+    }
+
+    /// The overlay has to reach every row drawn on the time axis — that is what makes them
+    /// pannable — but stop above the keys, which are legends rather than chart and should
+    /// stay a plain tap.
+    @Test func theGestureRegionCoversTheTimeAlignedRowsOnly() {
+        let layout = SleepTimelineCanvasVerticalLayout(totalHeight: 480, hasVitals: true)
+        let lanes = layout.vitals!
+
+        #expect(layout.gestureHeight == lanes.laneRowsHeight)
+        #expect(lanes.laneRowsHeight < lanes.totalHeight)
     }
 
     @Test func compactTimelineGeometryKeepsEveryLaneInsideThePlotFrame() {

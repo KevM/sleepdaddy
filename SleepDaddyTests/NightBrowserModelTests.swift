@@ -14,7 +14,7 @@ struct NightBrowserModelTests {
         await model.loadData()
 
         #expect(model.appState == .loaded)
-        #expect(model.assembledNights.count == 14) // 14 nights overview strip
+        #expect(model.assembledNights.count == NightBrowserModel.overviewNightCount)
         #expect(!model.availableSources.isEmpty)
     }
 
@@ -54,6 +54,37 @@ struct NightBrowserModelTests {
         let prefsStore = PreferencesStore(userDefaults: testDefaults)
         let model = NightBrowserModel(store: fixtureStore, preferencesStore: prefsStore, now: now)
         return (model, fixtureStore)
+    }
+
+    /// A pulse-oximeter export can be weeks old, and importing one selects the night it
+    /// was recorded. If the overview window does not reach that far back there is no
+    /// assembled night to select, and the recording becomes permanently unreachable.
+    @Test @MainActor func nightsWellOlderThanTwoWeeksStayReachable() async {
+        let day = Self.testCalendar.date(byAdding: .day, value: -30, to: Self.july25Noon)!
+        let interval = NormalizedSleepInterval(
+            id: "old-1",
+            startDate: Self.testCalendar.date(bySettingHour: 23, minute: 0, second: 0, of: day)!,
+            endDate: Self.testCalendar.date(
+                bySettingHour: 7, minute: 0, second: 0,
+                of: Self.testCalendar.date(byAdding: .day, value: 1, to: day)!
+            )!,
+            stage: .core,
+            sourceName: "Watch",
+            sourceIdentifier: "com.apple.health",
+            deviceModel: nil,
+            bundleIdentifier: nil
+        )
+
+        let model = makeTestModel(now: { Self.july25Noon }, intervals: [interval])
+        await model.loadData()
+
+        let reachable = model.assembledNights.contains {
+            Self.testCalendar.isDate($0.date, inSameDayAs: day)
+        }
+        #expect(reachable)
+
+        model.selectNight(day)
+        #expect(model.selectedAssembledNight != nil)
     }
 
     @Test @MainActor func loadSelectsNewestPopulatedNight() async {
@@ -380,7 +411,7 @@ struct NightBrowserModelTests {
     }
 }
 
-private actor BlockingSleepStore: HealthKitSleepStoreProtocol {
+actor BlockingSleepStore: HealthKitSleepStoreProtocol {
     private let intervals: [NormalizedSleepInterval]
     private var fetchCount = 0
     private var blocksNextFetch = false
@@ -409,12 +440,23 @@ private actor BlockingSleepStore: HealthKitSleepStoreProtocol {
         blocksNextFetch = true
     }
 
-    func waitForFetchCount(_ expectedCount: Int, maxYields: Int = 1_000) async -> Bool {
-        for _ in 0..<maxYields {
+    /// Polls until `fetchCount` reaches `expectedCount`, bounded by wall clock.
+    ///
+    /// A yield budget is not a timeout: the refresh being waited on runs on the main actor,
+    /// and a thousand yields here can elapse in microseconds without the main actor having
+    /// been scheduled once. On a loaded machine that reported a timeout for a refresh that
+    /// was merely still queued.
+    func waitForFetchCount(_ expectedCount: Int, timeout: Duration = .seconds(5)) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
             if fetchCount >= expectedCount {
                 return true
             }
-            await Task.yield()
+            do {
+                try await Task.sleep(for: .milliseconds(5))
+            } catch {
+                break // Cancelled — fall through to one last read rather than spinning.
+            }
         }
         return fetchCount >= expectedCount
     }

@@ -1,7 +1,30 @@
 import Testing
+import UIKit
 @testable import SleepDaddy
 
 struct TimelineGestureSessionTests {
+    @Test @MainActor func chartPinchDoesNotRecognizeWithAnAncestorScrollPan() {
+        let overlay = TimelineGestureOverlay(
+            allowsVerticalScrolling: true,
+            onInteractionBegan: {},
+            onPanChanged: { _ in },
+            onPinchChanged: { _, _ in },
+            onInteractionEnded: { _ in },
+            onInteractionCancelled: {},
+            onTap: { _ in }
+        )
+        let coordinator = overlay.makeCoordinator()
+        let chart = UIView()
+        let scrollView = UIScrollView()
+        let pinch = UIPinchGestureRecognizer()
+        chart.addGestureRecognizer(pinch)
+
+        #expect(!coordinator.gestureRecognizer(
+            pinch,
+            shouldRecognizeSimultaneouslyWith: scrollView.panGestureRecognizer
+        ))
+    }
+
     @Test func pinchOnlySessionAfterFastPanSettlesWithZeroVelocity() {
         var session = TimelineGestureSession()
 

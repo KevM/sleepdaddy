@@ -3,6 +3,7 @@ import UIKit
 
 public struct TimelineGestureOverlay: UIViewRepresentable {
     let resetGeneration: Int
+    let allowsVerticalScrolling: Bool
     let onInteractionBegan: @MainActor () -> Void
     let onPanChanged: @MainActor (_ translationX: CGFloat) -> Void
     let onPinchChanged: @MainActor (_ scale: CGFloat, _ centroidX: CGFloat) -> Void
@@ -12,6 +13,7 @@ public struct TimelineGestureOverlay: UIViewRepresentable {
 
     public init(
         resetGeneration: Int = 0,
+        allowsVerticalScrolling: Bool = false,
         onInteractionBegan: @escaping @MainActor () -> Void,
         onPanChanged: @escaping @MainActor (_ translationX: CGFloat) -> Void,
         onPinchChanged: @escaping @MainActor (_ scale: CGFloat, _ centroidX: CGFloat) -> Void,
@@ -20,6 +22,7 @@ public struct TimelineGestureOverlay: UIViewRepresentable {
         onTap: @escaping @MainActor (_ location: CGPoint) -> Void
     ) {
         self.resetGeneration = resetGeneration
+        self.allowsVerticalScrolling = allowsVerticalScrolling
         self.onInteractionBegan = onInteractionBegan
         self.onPanChanged = onPanChanged
         self.onPinchChanged = onPinchChanged
@@ -70,10 +73,21 @@ public struct TimelineGestureOverlay: UIViewRepresentable {
             self.observedResetGeneration = parent.resetGeneration
         }
 
+        public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard parent.allowsVerticalScrolling,
+                  let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.x) >= abs(velocity.y)
+        }
+
         public func gestureRecognizer(
             _ gestureRecognizer: UIGestureRecognizer,
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
+            // Limit this exception to the pan and pinch installed on our own overlay.
+            // A vitals chart may live in a vertical ScrollView; accepting that ancestor's
+            // pan alongside our pinch makes diagonal two-finger gestures move both axes.
+            guard gestureRecognizer.view === otherGestureRecognizer.view else { return false }
             if (gestureRecognizer is UIPanGestureRecognizer && otherGestureRecognizer is UIPinchGestureRecognizer) ||
                (gestureRecognizer is UIPinchGestureRecognizer && otherGestureRecognizer is UIPanGestureRecognizer) {
                 return true
